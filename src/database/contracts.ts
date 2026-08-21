@@ -1,4 +1,5 @@
 import type { MarketSnapshot } from '../core/market-data.js';
+import type { Candidate } from '../core/discovery.js';
 
 export interface HealthRepository {
   ping(): Promise<void>;
@@ -9,5 +10,7 @@ export interface MarketSnapshotRepository {
   recent(tokenMint: string, limit: number): Promise<readonly MarketSnapshot[]>;
 }
 
-// PostgreSQL will implement these contracts in the database milestone; no live
-// persistence is claimed while STORAGE_DRIVER=memory.
+export interface CandidateRepository {
+  save(candidate: Candidate): Promise<void>;
+  observing(): Promise<readonly Candidate[]>;
+}

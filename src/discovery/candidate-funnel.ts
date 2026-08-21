@@ -49,6 +49,21 @@ export class CandidateFunnel {
     return { observing, rejected, duplicateCount };
   }
 
+  restore(candidates: readonly Candidate[]): void {
+    for (const candidate of candidates) {
+      if (candidate.status !== 'observing' || this.active.has(candidate.token.token.mint)) continue;
+      if (this.active.size >= this.options.maxMonitoredTokens) {
+        throw new Error('Persisted observing candidates exceed the configured monitoring limit.');
+      }
+      this.known.add(candidate.token.token.mint);
+      this.active.set(candidate.token.token.mint, candidate);
+    }
+  }
+
+  isKnown(tokenMint: string): boolean {
+    return this.known.has(tokenMint);
+  }
+
   release(tokenMint: string, reason: string): Candidate | undefined {
     const active = this.active.get(tokenMint);
     if (!active) return undefined;

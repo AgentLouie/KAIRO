@@ -15,11 +15,11 @@ It is separate from the Paper Trader Chrome extension. KAIRO can run without GMG
 
 - Birdeye live token overview and Pump.fun new-listing discovery.
 - PostgreSQL persistence with Docker Compose.
-- Candidate funnel capped at 20 monitored tokens.
+- Restart-safe PostgreSQL candidate queue capped at 20 monitored tokens.
 - Configurable preliminary liquidity threshold.
 - Helius Mayhem Mode detector (requires `HELIUS_API_KEY`).
 
-Momentum scoring, risk scoring, continuous scheduling, and paper execution are not implemented yet.
+Momentum scoring, risk scoring, continuous scheduling, and paper execution are not implemented yet. `npm run discover:once` performs one saved discovery pass; a future scheduler will run these passes automatically.
 
 ## Setup
 

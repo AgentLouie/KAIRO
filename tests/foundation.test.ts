@@ -15,6 +15,8 @@ import { BirdeyeDiscoveryProvider } from '../src/providers/birdeye/birdeye-disco
 import { CandidateFunnel } from '../src/discovery/candidate-funnel.js';
 import { excludeMayhemMode } from '../src/discovery/mayhem-mode-guard.js';
 import { HeliusMayhemModeDetector } from '../src/providers/helius/helius-mayhem-mode-detector.js';
+import { DiscoveryCycle } from '../src/discovery/discovery-cycle.js';
+import type { CandidateRepository } from '../src/database/contracts.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -173,6 +175,25 @@ test('candidate funnel ranks by liquidity, deduplicates, and enforces the monito
   assert.equal(result.rejected.length, 2);
   assert.equal(funnel.ingest([make('two', 2_000)]).duplicateCount, 1);
   assert.equal(funnel.release('two', 'Observation timeout')?.status, 'released');
+});
+
+test('discovery cycle restores observing candidates and avoids rediscovering them after restart', async () => {
+  const make = (mint: string, liquidityUsd: number) => ({ token: { mint }, source: 'pump_dot_fun' as const, discoveredAt: new Date(), liquidityUsd });
+  const stored: import('../src/core/discovery.js').Candidate[] = [{ token: make('existing', 1_000), status: 'observing' }];
+  const repository: CandidateRepository = {
+    async save(candidate) { stored.push(candidate); },
+    async observing() { return stored.filter((candidate) => candidate.status === 'observing'); }
+  };
+  const cycle = new DiscoveryCycle(
+    { name: 'fake', async listNewPumpFunTokens() { return [make('existing', 1_000), make('new', 2_000)]; } },
+    { async isMayhemMode() { return false; } },
+    new CandidateFunnel({ maxMonitoredTokens: 2, preliminaryMinLiquidityUsd: 500 }),
+    repository
+  );
+  const result = await cycle.runOnce(20);
+  assert.equal(result.skippedKnown, 1);
+  assert.equal(result.observingAdded, 1);
+  assert.deepEqual(result.monitored.map((candidate) => candidate.token.token.mint), ['existing', 'new']);
 });
 
 test('Mayhem filter removes only candidates confirmed by the detector', async () => {

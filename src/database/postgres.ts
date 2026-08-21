@@ -1,6 +1,7 @@
 import { Pool, type PoolConfig, type QueryResultRow } from 'pg';
 import type { MarketSnapshot } from '../core/market-data.js';
-import type { HealthRepository, MarketSnapshotRepository } from './contracts.js';
+import type { Candidate } from '../core/discovery.js';
+import type { CandidateRepository, HealthRepository, MarketSnapshotRepository } from './contracts.js';
 
 export interface SqlClient {
   query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<{ readonly rows: readonly Row[] }>;
@@ -106,6 +107,45 @@ export class PostgresMarketSnapshotRepository implements MarketSnapshotRepositor
   }
 }
 
+export class PostgresCandidateRepository implements CandidateRepository {
+  constructor(private readonly client: SqlClient) {}
+
+  async save(candidate: Candidate): Promise<void> {
+    const { token } = candidate;
+    await this.client.query(
+      `INSERT INTO tokens (mint, symbol, name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (mint) DO UPDATE SET
+         symbol = COALESCE(EXCLUDED.symbol, tokens.symbol),
+         name = COALESCE(EXCLUDED.name, tokens.name),
+         updated_at = NOW()`,
+      [token.token.mint, token.token.symbol ?? null, token.token.name ?? null]
+    );
+    await this.client.query(
+      `INSERT INTO candidates (token_mint, source, discovered_at, status, reason, liquidity_usd)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (token_mint) WHERE (status = 'observing') DO UPDATE SET
+         source = EXCLUDED.source,
+         discovered_at = EXCLUDED.discovered_at,
+         reason = EXCLUDED.reason,
+         liquidity_usd = EXCLUDED.liquidity_usd,
+         updated_at = NOW()`,
+      [token.token.mint, token.source, token.discoveredAt, candidate.status, candidate.reason ?? null, token.liquidityUsd ?? null]
+    );
+  }
+
+  async observing(): Promise<readonly Candidate[]> {
+    const result = await this.client.query<CandidateRow>(
+      `SELECT c.token_mint, t.symbol, t.name, c.source, c.discovered_at, c.status, c.reason, c.liquidity_usd
+       FROM candidates c
+       JOIN tokens t ON t.mint = c.token_mint
+       WHERE c.status = 'observing'
+       ORDER BY c.liquidity_usd DESC NULLS LAST, c.discovered_at ASC`
+    );
+    return result.rows.map(candidateFromRow);
+  }
+}
+
 interface SnapshotRow extends QueryResultRow {
   token_mint: string;
   symbol: string | null;
@@ -123,6 +163,17 @@ interface SnapshotRow extends QueryResultRow {
   unique_traders_1m: number | null;
   unique_buyers_1m: number | null;
   unique_sellers_1m: number | null;
+}
+
+interface CandidateRow extends QueryResultRow {
+  token_mint: string;
+  symbol: string | null;
+  name: string | null;
+  source: 'pump_dot_fun';
+  discovered_at: Date;
+  status: 'observing';
+  reason: string | null;
+  liquidity_usd: string | number | null;
 }
 
 function optionalNumber(value: string | number | null): number | undefined {
@@ -151,5 +202,18 @@ function snapshotFromRow(row: SnapshotRow): MarketSnapshot {
     ...(row.unique_traders_1m !== null ? { uniqueTraders1m: row.unique_traders_1m } : {}),
     ...(row.unique_buyers_1m !== null ? { uniqueBuyers1m: row.unique_buyers_1m } : {}),
     ...(row.unique_sellers_1m !== null ? { uniqueSellers1m: row.unique_sellers_1m } : {})
+  };
+}
+
+function candidateFromRow(row: CandidateRow): Candidate {
+  return {
+    token: {
+      token: { mint: row.token_mint, ...(row.symbol ? { symbol: row.symbol } : {}), ...(row.name ? { name: row.name } : {}) },
+      source: row.source,
+      discoveredAt: new Date(row.discovered_at),
+      ...(row.liquidity_usd === null ? {} : { liquidityUsd: Number(row.liquidity_usd) })
+    },
+    status: row.status,
+    ...(row.reason ? { reason: row.reason } : {})
   };
 }
