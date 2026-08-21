@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pump-momentum-scout-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pump_momentum_scout
+      POSTGRES_USER: scout
+      POSTGRES_PASSWORD: scout_local_password
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - pump_momentum_scout_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scout -d pump_momentum_scout"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pump_momentum_scout_postgres:

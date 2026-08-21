@@ -1,0 +1,31 @@
+{
+  "name": "kairo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KAIRO — independent Solana Pump.fun paper-trading research engine.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file=.env dist/src/index.js",
+    "dev": "npm run build && npm run start",
+    "test": "npm run build && node --test dist/tests/**/*.test.js",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "verify:birdeye": "npm run build && node --env-file=.env dist/src/tools/verify-birdeye.js",
+    "db:migrate": "npm run build && node --env-file=.env dist/src/tools/migrate.js",
+    "verify:postgres": "npm run build && node --env-file=.env dist/src/tools/verify-postgres.js",
+    "discover:once": "npm run build && node --env-file=.env dist/src/tools/discover-once.js",
+    "verify:mayhem": "npm run build && node --env-file=.env dist/src/tools/verify-mayhem.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}

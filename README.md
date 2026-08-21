@@ -1,0 +1,50 @@
+# KAIRO
+
+KAIRO is an independent **Pump.fun paper-trading research engine** for Solana. It discovers eligible tokens, excludes Mayhem Mode, gathers market data, and stores research data to determine whether a transparent strategy has an edge.
+
+It is separate from the Paper Trader Chrome extension. KAIRO can run without GMGN, Axiom, Padre, or a browser open.
+
+## Safety boundary
+
+- Paper trading only; no wallet connection, private key, signing, swaps, or real SOL spending.
+- Pump.fun-origin candidates only.
+- Mayhem Mode tokens are hard-excluded through on-chain verification.
+- Missing or failed Mayhem checks fail closed: the token cannot reach monitoring or a future paper-buy decision.
+
+## Current capabilities
+
+- Birdeye live token overview and Pump.fun new-listing discovery.
+- PostgreSQL persistence with Docker Compose.
+- Candidate funnel capped at 20 monitored tokens.
+- Configurable preliminary liquidity threshold.
+- Helius Mayhem Mode detector (requires `HELIUS_API_KEY`).
+
+Momentum scoring, risk scoring, continuous scheduling, and paper execution are not implemented yet.
+
+## Setup
+
+1. Copy `.env.example` to `.env`.
+2. Add your provider keys only to `.env`—never commit this file.
+3. Start PostgreSQL:
+
+   ```powershell
+   docker compose up -d
+   npm run db:migrate
+   ```
+
+4. Verify the connections:
+
+   ```powershell
+   npm run verify:birdeye
+   npm run verify:postgres
+   npm run discover:once
+   ```
+
+## Development
+
+```powershell
+npm run check
+npm test
+```
+
+Read [BLUEPRINT.md](BLUEPRINT.md) for the technical architecture and milestones.
