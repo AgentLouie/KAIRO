@@ -24,6 +24,8 @@ import { BirdeyeHolderProfileProvider } from './providers/birdeye/birdeye-holder
 import { HeliusMintAuthorityProvider } from './providers/helius/helius-mint-authority-provider.js';
 import { HeliusWalletAgeProvider } from './providers/helius/helius-wallet-age-provider.js';
 import { FreshWalletAnalyzer } from './risk/fresh-wallet-analyzer.js';
+import { ActivityPruner } from './discovery/activity-pruner.js';
+import { ScheduledActivityPruner } from './discovery/scheduled-activity-pruner.js';
 import { SignalCycle } from './signals/signal-cycle.js';
 import { ScheduledSignalTask } from './signals/scheduled-signal-task.js';
 import { PostgresSignalRepository } from './database/postgres.js';
@@ -54,6 +56,11 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
         config.snapshotMaxConcurrency,
         { requestSpacingMs: config.snapshotRequestSpacingMs }
       ),
+      config.snapshotIntervalMs,
+      logger
+    ),
+    new IntervalScheduler(
+      new ScheduledActivityPruner(new ActivityPruner(candidates, new PostgresMarketSnapshotRepository(database)), logger),
       config.snapshotIntervalMs,
       logger
     ),

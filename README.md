@@ -18,7 +18,7 @@ It is separate from the Paper Trader Chrome extension. KAIRO can run without GMG
 - Restart-safe PostgreSQL candidate queue capped at 20 monitored tokens.
 - Configurable preliminary liquidity threshold.
 - Helius Mayhem Mode detector (requires `HELIUS_API_KEY`).
-- Controlled background discovery, market snapshots, Momentum v1 scoring, paced risk assessment, and saved research-signal decisions every minute, with retry/backoff and no overlapping runs.
+- Controlled background discovery, market snapshots, automatic inactive-token pruning, Momentum v1 scoring, paced risk assessment, and saved research-signal decisions every minute, with retry/backoff and no overlapping runs.
 
 Momentum v1 and Risk v1 feed an explainable Signal v1 engine. It can emit research-only `PAPER BUY`, `WATCH`, or `REJECT`; it cannot open a position. Helius verifies mint/freeze authority and conservatively estimates top-holder wallet age; Birdeye supplies wallet-level holder concentration plus tagged bundler, insider, and developer cohorts.
 
