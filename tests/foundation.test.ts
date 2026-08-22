@@ -481,7 +481,7 @@ test('paper execution does not request market data when no paper buy is pending'
     { async getTokenPrice() { marketCalls += 1; return { source: 'fake', fetchedAt: new Date(), data: 1 }; } } as unknown as MarketDataProvider,
     loadPaperPortfolioConfig({})
   );
-  assert.deepEqual(await cycle.runOnce(), { reviewed: 0, opened: 0, skipped: 0 });
+  assert.deepEqual(await cycle.runOnce(), { reviewed: 0, opened: 0, skipped: 0, openedContracts: [] });
   assert.equal(marketCalls, 0);
 });
 

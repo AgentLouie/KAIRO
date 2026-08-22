@@ -16,17 +16,17 @@ export interface PaperExecutionRepository {
 /** Executes only persisted PAPER BUY research signals into local PostgreSQL rows. */
 export class PaperExecutionCycle {
   constructor(private readonly signals: PendingPaperBuyRepository, private readonly portfolio: PaperExecutionRepository, private readonly market: MarketDataProvider, private readonly config: PaperPortfolioConfig, private readonly planner = new PaperEntryPlanner(config)) {}
-  async runOnce(): Promise<{ reviewed: number; opened: number; skipped: number }> {
-    let opened = 0; let skipped = 0;
+  async runOnce(): Promise<{ reviewed: number; opened: number; skipped: number; openedContracts: readonly string[] }> {
+    let opened = 0; let skipped = 0; const openedContracts: string[] = [];
     const pending = await this.signals.pending();
-    if (pending.length === 0) return { reviewed: 0, opened: 0, skipped: 0 };
+    if (pending.length === 0) return { reviewed: 0, opened: 0, skipped: 0, openedContracts };
     const sol = await this.market.getTokenPrice(WRAPPED_SOL_MINT);
     for (const signal of pending) {
       const [state, quote] = await Promise.all([this.portfolio.state(this.config.startingBalanceSol), this.market.getTokenPrice(signal.token.mint)]);
       const plan = this.planner.plan({ token: signal.token, markPriceUsd: quote.data, solUsdPrice: sol.data, availableBalanceSol: state.cashBalanceSol, openPositions: state.openPositions, observedAt: quote.fetchedAt });
       if (plan.status !== 'approved') { skipped += 1; continue; }
-      if (await this.portfolio.open(signal, plan, this.config)) opened += 1; else skipped += 1;
+      if (await this.portfolio.open(signal, plan, this.config)) { opened += 1; openedContracts.push(signal.token.mint); } else skipped += 1;
     }
-    return { reviewed: opened + skipped, opened, skipped };
+    return { reviewed: opened + skipped, opened, skipped, openedContracts };
   }
 }
