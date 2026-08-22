@@ -161,7 +161,7 @@ test('migration runner records each new migration once', async () => {
     }
   };
   const applied = await applyMigrations(client, resolve(process.cwd(), 'database', 'migrations'));
-  assert.deepEqual(applied, ['001_foundation.sql', '002_candidate_discovery.sql', '003_momentum_features.sql', '004_risk_assessments.sql']);
+  assert.deepEqual(applied, ['001_foundation.sql', '002_candidate_discovery.sql', '003_momentum_features.sql', '004_risk_assessments.sql', '005_signals.sql']);
   assert.ok(calls.includes('BEGIN'));
   assert.ok(calls.includes('COMMIT'));
 });

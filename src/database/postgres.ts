@@ -6,6 +6,8 @@ import type { MomentumFeatureRepository } from './contracts.js';
 import type { MomentumFeatureSet } from '../features/momentum-engine.js';
 import type { RiskAssessment } from '../risk/risk-engine.js';
 import type { RiskAssessmentRepository } from './contracts.js';
+import type { SignalRepository } from './contracts.js';
+import type { SignalDecision } from '../signals/signal-engine.js';
 
 export interface SqlClient {
   query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<{ readonly rows: readonly Row[] }>;
@@ -168,6 +170,11 @@ export class PostgresMomentumFeatureRepository implements MomentumFeatureReposit
       ]
     );
   }
+  async latest(tokenMint: string): Promise<MomentumFeatureSet | undefined> {
+    const result = await this.client.query<any>('SELECT f.observed_at, f.engine_version, f.status, f.momentum_score, f.metrics, f.reasons, t.symbol, t.name FROM feature_sets f JOIN tokens t ON t.mint=f.token_mint WHERE f.token_mint=$1 ORDER BY f.observed_at DESC LIMIT 1', [tokenMint]);
+    const row = result.rows[0]; if (!row) return undefined;
+    return { token: { mint: tokenMint, ...(row.symbol ? { symbol: row.symbol } : {}), ...(row.name ? { name: row.name } : {}) }, observedAt: new Date(row.observed_at), engineVersion: row.engine_version, status: row.status, ...(row.momentum_score === null ? {} : { score: Number(row.momentum_score) }), metrics: row.metrics, reasons: row.reasons };
+  }
 }
 
 export class PostgresRiskAssessmentRepository implements RiskAssessmentRepository {
@@ -179,6 +186,18 @@ export class PostgresRiskAssessmentRepository implements RiskAssessmentRepositor
        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
       [assessment.token.mint, assessment.observedAt, assessment.engineVersion, assessment.status, assessment.score ?? null, JSON.stringify(assessment.evidence ?? {}), JSON.stringify(assessment.reasons)]
     );
+  }
+  async latest(tokenMint: string): Promise<RiskAssessment | undefined> {
+    const result = await this.client.query<any>('SELECT r.observed_at, r.engine_version, r.status, r.risk_score, r.reasons, t.symbol, t.name FROM risk_assessments r JOIN tokens t ON t.mint=r.token_mint WHERE r.token_mint=$1 ORDER BY r.observed_at DESC LIMIT 1', [tokenMint]);
+    const row = result.rows[0]; if (!row) return undefined;
+    return { token: { mint: tokenMint, ...(row.symbol ? { symbol: row.symbol } : {}), ...(row.name ? { name: row.name } : {}) }, observedAt: new Date(row.observed_at), engineVersion: row.engine_version, status: row.status, ...(row.risk_score === null ? {} : { score: Number(row.risk_score) }), reasons: row.reasons };
+  }
+}
+
+export class PostgresSignalRepository implements SignalRepository {
+  constructor(private readonly client: SqlClient) {}
+  async save(signal: SignalDecision): Promise<void> {
+    await this.client.query('INSERT INTO signals (token_mint, observed_at, strategy_version, action, reasons) VALUES ($1,$2,$3,$4,$5::jsonb)', [signal.token.mint, signal.observedAt, signal.strategyVersion, signal.action, JSON.stringify(signal.reasons)]);
   }
 }
 
