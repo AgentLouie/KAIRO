@@ -25,6 +25,8 @@ import { RiskEngine } from '../src/risk/risk-engine.js';
 import { HeliusMintAuthorityProvider } from '../src/providers/helius/helius-mint-authority-provider.js';
 import { BirdeyeHolderProvider } from '../src/providers/birdeye/birdeye-holder-provider.js';
 import { BirdeyeHolderProfileProvider } from '../src/providers/birdeye/birdeye-holder-profile-provider.js';
+import { HeliusWalletAgeProvider } from '../src/providers/helius/helius-wallet-age-provider.js';
+import { FreshWalletAnalyzer } from '../src/risk/fresh-wallet-analyzer.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -353,4 +355,22 @@ test('Birdeye holder profile maps labeled exposure and a fully exited developer'
   assert.equal(result.insiderPct, 0.03);
   assert.equal(result.developerPosition, 'fully_exited');
   assert.equal(result.developerRecentSelling, true);
+});
+
+test('fresh-wallet analyzer estimates supply share from the top-holder wallet sample', async () => {
+  const holders = new BirdeyeHolderProvider('test-key', async () => ({
+    ok: true, status: 200,
+    async json() { return { success: true, data: { top10_hold_percent: 40, items: [{ owner: 'old', amount: 75 }, { owner: 'fresh', amount: 25 }] } }; }
+  }));
+  const ages = new HeliusWalletAgeProvider('test-key', async (_url, init) => ({
+    ok: true, status: 200,
+    async json() {
+      const wallet = (JSON.parse(init.body) as { params: [string] }).params[0];
+      const blockTime = wallet === 'fresh' ? 172_800 : 0;
+      return { jsonrpc: '2.0', result: { data: [{ blockTime }] } };
+    }
+  }));
+  const result = await new FreshWalletAnalyzer(holders, ages, 1, () => new Date(172_800 * 1_000)).analyze('mint');
+  assert.equal(result.freshWalletPct, 0.1);
+  assert.equal(result.freshWallets, 1);
 });

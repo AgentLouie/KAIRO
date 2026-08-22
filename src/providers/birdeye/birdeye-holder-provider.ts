@@ -9,6 +9,17 @@ export interface HolderConcentration {
   readonly observedAt: Date;
 }
 
+export interface TopHolderWallet {
+  readonly owner: string;
+  readonly amount: number;
+}
+
+export interface TopHolderWallets {
+  readonly top10HoldPct: number;
+  readonly wallets: readonly TopHolderWallet[];
+  readonly observedAt: Date;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
@@ -52,5 +63,30 @@ export class BirdeyeHolderProvider {
       throw new BirdeyeApiError('Birdeye holder response did not contain holder concentration fields.', response.status);
     }
     return { holderCount, top10HoldPct: top10HoldPercent / 100, observedAt: new Date() };
+  }
+
+  async getTopWallets(tokenMint: string): Promise<TopHolderWallets> {
+    const url = new URL(HOLDER_URL);
+    url.searchParams.set('address', tokenMint);
+    url.searchParams.set('offset', '0');
+    url.searchParams.set('limit', '10');
+    url.searchParams.set('mode', 'wallet');
+    url.searchParams.set('ui_amount_mode', 'scaled');
+    const response = await this.fetcher(url.toString(), { headers: { 'X-API-KEY': this.apiKey, 'x-chain': 'solana' } });
+    const payload = asRecord(await response.json());
+    if (!response.ok) throw new BirdeyeApiError(textOrUndefined(payload?.message) ?? `Birdeye holder request failed with HTTP ${response.status}.`, response.status);
+    if (payload?.success !== true) throw new BirdeyeApiError(textOrUndefined(payload?.message) ?? 'Birdeye returned an unsuccessful holder response.', response.status);
+    const data = asRecord(payload.data);
+    const top10HoldPercent = numberOrUndefined(data?.top10_hold_percent);
+    const rows = Array.isArray(data?.items) ? data.items : undefined;
+    if (top10HoldPercent === undefined || !rows) throw new BirdeyeApiError('Birdeye holder response did not contain top-wallet fields.', response.status);
+    const wallets = rows.map((item) => {
+      const row = asRecord(item);
+      const owner = textOrUndefined(row?.owner);
+      const amount = numberOrUndefined(row?.amount);
+      return owner && amount !== undefined && amount >= 0 ? { owner, amount } : undefined;
+    }).filter((wallet): wallet is TopHolderWallet => wallet !== undefined);
+    if (wallets.length === 0) throw new BirdeyeApiError('Birdeye holder response did not contain usable wallet rows.', response.status);
+    return { top10HoldPct: top10HoldPercent / 100, wallets, observedAt: new Date() };
   }
 }
