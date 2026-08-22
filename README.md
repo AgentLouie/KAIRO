@@ -50,4 +50,12 @@ npm run check
 npm test
 ```
 
+## Review watched coins
+
+Show saved decisions with each Solana token contract address (mint):
+
+```powershell
+npm run signals:recent
+```
+
 Read [BLUEPRINT.md](BLUEPRINT.md) for the technical architecture and milestones.

@@ -24,7 +24,8 @@
     "verify:holder-profile": "npm run build && node --env-file=.env dist/src/tools/verify-holder-profile.js",
     "verify:fresh-wallets": "npm run build && node --env-file=.env dist/src/tools/verify-fresh-wallets.js",
     "risk:once": "npm run build && node --env-file=.env dist/src/tools/risk-once.js",
-    "signal:once": "npm run build && node --env-file=.env dist/src/tools/signal-once.js"
+    "signal:once": "npm run build && node --env-file=.env dist/src/tools/signal-once.js",
+    "signals:recent": "npm run build && node --env-file=.env dist/src/tools/signals-recent.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
