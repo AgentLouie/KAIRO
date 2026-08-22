@@ -10,6 +10,7 @@ export interface AppConfig {
   readonly birdeyeApiKey?: string;
   readonly discoveryIntervalMs: number;
   readonly snapshotIntervalMs: number;
+  readonly momentumIntervalMs: number;
   readonly snapshotMaxConcurrency: number;
   readonly snapshotRequestSpacingMs: number;
 }
@@ -86,6 +87,7 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     logLevel: logLevel as AppConfig['logLevel'],
     discoveryIntervalMs: intervalMs('DISCOVERY_INTERVAL_SECONDS', env.DISCOVERY_INTERVAL_SECONDS, 60),
     snapshotIntervalMs: intervalMs('SNAPSHOT_INTERVAL_SECONDS', env.SNAPSHOT_INTERVAL_SECONDS, 300),
+    momentumIntervalMs: intervalMs('MOMENTUM_INTERVAL_SECONDS', env.MOMENTUM_INTERVAL_SECONDS, 300),
     snapshotMaxConcurrency: positiveInteger('SNAPSHOT_MAX_CONCURRENCY', env.SNAPSHOT_MAX_CONCURRENCY, 1, 1),
     snapshotRequestSpacingMs: spacingMs(env.SNAPSHOT_REQUEST_SPACING_SECONDS),
     storageDriver,

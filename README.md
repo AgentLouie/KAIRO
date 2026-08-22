@@ -18,9 +18,9 @@ It is separate from the Paper Trader Chrome extension. KAIRO can run without GMG
 - Restart-safe PostgreSQL candidate queue capped at 20 monitored tokens.
 - Configurable preliminary liquidity threshold.
 - Helius Mayhem Mode detector (requires `HELIUS_API_KEY`).
-- Controlled background discovery (every 60 seconds) and fresh market snapshots (every 5 minutes), with one paced request at a time, retry/backoff, and no overlapping runs.
+- Controlled background discovery (every 60 seconds), fresh market snapshots, and Momentum v1 scoring (every 5 minutes), with one paced request at a time, retry/backoff, and no overlapping runs.
 
-Momentum scoring, risk scoring, continuous scheduling, and paper execution are not implemented yet. `npm run discover:once` performs one saved discovery pass; a future scheduler will run these passes automatically.
+Momentum v1 saves explainable, non-trading scores from two recent snapshots. Risk scoring, trade signals, and paper execution are not implemented yet.
 
 ## Setup
 
@@ -40,6 +40,7 @@ Momentum scoring, risk scoring, continuous scheduling, and paper execution are n
    npm run verify:postgres
     npm run discover:once
     npm run monitor:once
+    npm run momentum:once
    ```
 
 ## Development

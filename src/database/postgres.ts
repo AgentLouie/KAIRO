@@ -2,6 +2,8 @@ import { Pool, type PoolConfig, type QueryResultRow } from 'pg';
 import type { MarketSnapshot } from '../core/market-data.js';
 import type { Candidate } from '../core/discovery.js';
 import type { CandidateRepository, HealthRepository, MarketSnapshotRepository } from './contracts.js';
+import type { MomentumFeatureRepository } from './contracts.js';
+import type { MomentumFeatureSet } from '../features/momentum-engine.js';
 
 export interface SqlClient {
   query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<{ readonly rows: readonly Row[] }>;
@@ -143,6 +145,26 @@ export class PostgresCandidateRepository implements CandidateRepository {
        ORDER BY c.liquidity_usd DESC NULLS LAST, c.discovered_at ASC`
     );
     return result.rows.map(candidateFromRow);
+  }
+}
+
+export class PostgresMomentumFeatureRepository implements MomentumFeatureRepository {
+  constructor(private readonly client: SqlClient) {}
+
+  async save(feature: MomentumFeatureSet): Promise<void> {
+    await this.client.query(
+      `INSERT INTO feature_sets (token_mint, observed_at, engine_version, status, momentum_score, metrics, reasons)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
+      [
+        feature.token.mint,
+        feature.observedAt,
+        feature.engineVersion,
+        feature.status,
+        feature.score ?? null,
+        JSON.stringify(feature.metrics),
+        JSON.stringify(feature.reasons)
+      ]
+    );
   }
 }
 

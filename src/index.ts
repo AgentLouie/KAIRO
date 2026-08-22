@@ -12,6 +12,9 @@ import { ScheduledDiscoveryTask } from './discovery/scheduled-discovery-task.js'
 import { SnapshotService } from './market-data/snapshot-service.js';
 import { SnapshotCycle } from './market-data/snapshot-cycle.js';
 import { IntervalScheduler } from './runtime/interval-scheduler.js';
+import { MomentumCycle } from './features/momentum-cycle.js';
+import { ScheduledMomentumTask } from './features/scheduled-momentum-task.js';
+import { PostgresMomentumFeatureRepository } from './database/postgres.js';
 
 const config = loadAppConfig();
 const portfolio = loadPaperPortfolioConfig();
@@ -40,6 +43,14 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
         { requestSpacingMs: config.snapshotRequestSpacingMs }
       ),
       config.snapshotIntervalMs,
+      logger
+    ),
+    new IntervalScheduler(
+      new ScheduledMomentumTask(
+        new MomentumCycle(candidates, new PostgresMarketSnapshotRepository(database), new PostgresMomentumFeatureRepository(database)),
+        logger
+      ),
+      config.momentumIntervalMs,
       logger
     )
   );

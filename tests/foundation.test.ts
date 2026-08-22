@@ -20,6 +20,7 @@ import type { CandidateRepository } from '../src/database/contracts.js';
 import { SnapshotCycle } from '../src/market-data/snapshot-cycle.js';
 import { createLogger } from '../src/logging/logger.js';
 import { IntervalScheduler } from '../src/runtime/interval-scheduler.js';
+import { MomentumEngine } from '../src/features/momentum-engine.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -29,6 +30,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.riskPerTradePct, 1);
   assert.equal(portfolio.maxConcurrentPositions, 3);
   assert.equal(portfolio.maxMonitoredTokens, 20);
+  assert.equal(app.momentumIntervalMs, 300_000);
 });
 
 test('live trading and incomplete Postgres configuration are rejected', () => {
@@ -149,7 +151,7 @@ test('migration runner records each new migration once', async () => {
     }
   };
   const applied = await applyMigrations(client, resolve(process.cwd(), 'database', 'migrations'));
-  assert.deepEqual(applied, ['001_foundation.sql', '002_candidate_discovery.sql']);
+  assert.deepEqual(applied, ['001_foundation.sql', '002_candidate_discovery.sql', '003_momentum_features.sql']);
   assert.ok(calls.includes('BEGIN'));
   assert.ok(calls.includes('COMMIT'));
 });
@@ -274,4 +276,22 @@ test('Helius Mayhem detector treats an existing state account as Mayhem Mode', a
     async json() { return { jsonrpc: '2.0', result: { value: { lamports: 1 } } }; }
   }));
   assert.equal(await detector.isMayhemMode('So11111111111111111111111111111111111111112'), true);
+});
+
+test('momentum engine produces an explainable score from two complete snapshots', () => {
+  const engine = new MomentumEngine();
+  const result = engine.evaluate([
+    { token: { mint: 'mint' }, observedAt: new Date('2026-08-22T00:00:00Z'), provider: 'other', marketCapUsd: 10_000, volume1mUsd: 100, buyVolume1mUsd: 50, sellVolume1mUsd: 50, buys1m: 5, sells1m: 5 },
+    { token: { mint: 'mint' }, observedAt: new Date('2026-08-22T00:05:00Z'), provider: 'other', marketCapUsd: 12_000, volume1mUsd: 300, buyVolume1mUsd: 240, sellVolume1mUsd: 60, buys1m: 16, sells1m: 4 }
+  ]);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.score, 95);
+  assert.equal(result.metrics.marketCapReturnPct, 20);
+  assert.equal(result.metrics.buyPressure, 0.8);
+});
+
+test('momentum engine marks incomplete history as insufficient data', () => {
+  const result = new MomentumEngine().evaluate([{ token: { mint: 'mint' }, observedAt: new Date(), provider: 'other' }]);
+  assert.equal(result.status, 'insufficient_data');
+  assert.equal(result.score, undefined);
 });
