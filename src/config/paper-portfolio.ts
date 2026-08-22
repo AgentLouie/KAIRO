@@ -14,6 +14,7 @@ export interface PaperPortfolioConfig {
   readonly stopLossPct: number;
   readonly entrySlippageBps: number;
   readonly tradingFeeBps: number;
+  readonly minimumActivityVolume1mUsd: number;
 }
 
 function positiveNumber(value: string | undefined, name: string, fallback: number): number {
@@ -61,6 +62,7 @@ export function loadPaperPortfolioConfig(env: NodeJS.ProcessEnv = process.env): 
     stopLossPct: positiveNumber(env.PAPER_STOP_LOSS_PCT, 'PAPER_STOP_LOSS_PCT', 15),
     entrySlippageBps: basisPoints(env.PAPER_ENTRY_SLIPPAGE_BPS, 'PAPER_ENTRY_SLIPPAGE_BPS', 50),
     tradingFeeBps: basisPoints(env.PAPER_TRADING_FEE_BPS, 'PAPER_TRADING_FEE_BPS', 100)
+    , minimumActivityVolume1mUsd: positiveNumber(env.MIN_ACTIVITY_VOLUME_1M_USD, 'MIN_ACTIVITY_VOLUME_1M_USD', 100)
   };
 
   if (config.maxPortfolioRiskPct < config.riskPerTradePct) {

@@ -63,7 +63,7 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
       logger
     ),
     new IntervalScheduler(
-      new ScheduledActivityPruner(new ActivityPruner(candidates, new PostgresMarketSnapshotRepository(database)), logger),
+      new ScheduledActivityPruner(new ActivityPruner(candidates, new PostgresMarketSnapshotRepository(database), portfolio.minimumActivityVolume1mUsd), logger),
       config.snapshotIntervalMs,
       logger
     ),

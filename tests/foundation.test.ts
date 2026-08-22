@@ -46,6 +46,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.maxRiskScore, 55);
   assert.equal(portfolio.minMomentumScore, 70);
   assert.equal(portfolio.stopLossPct, 15);
+  assert.equal(portfolio.minimumActivityVolume1mUsd, 100);
   assert.equal(app.momentumIntervalMs, 300_000);
   assert.equal(app.riskIntervalMs, 300_000);
   assert.equal(app.signalIntervalMs, 60_000);
