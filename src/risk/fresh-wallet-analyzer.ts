@@ -4,6 +4,7 @@ import { HeliusWalletAgeProvider } from '../providers/helius/helius-wallet-age-p
 export interface FreshWalletEvidence {
   /** Estimated fraction of total supply held by fresh wallets among the top-ten holder sample. */
   readonly freshWalletPct: number;
+  readonly topHolderPct: number;
   readonly walletsSampled: number;
   readonly freshWallets: number;
   readonly observedAt: Date;
@@ -39,6 +40,7 @@ export class FreshWalletAnalyzer {
     if (totalAmount <= 0) throw new Error('Top-holder wallet amounts cannot be zero for fresh-wallet analysis.');
     return {
       freshWalletPct: top.top10HoldPct * freshAmount / totalAmount,
+      topHolderPct: top.top10HoldPct,
       walletsSampled: top.wallets.length,
       freshWallets,
       observedAt: this.now(),

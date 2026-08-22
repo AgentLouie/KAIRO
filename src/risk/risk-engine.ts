@@ -26,6 +26,7 @@ export interface RiskAssessment {
   readonly status: RiskStatus;
   /** 0 is lowest observed risk; 100 is highest observed risk. */
   readonly score?: number;
+  readonly evidence?: RiskEvidence;
   readonly reasons: readonly string[];
 }
 
@@ -37,7 +38,7 @@ export class RiskEngine {
   evaluate(evidence: RiskEvidence): RiskAssessment {
     const hardReject = hardRejection(evidence);
     if (hardReject) {
-      return { token: evidence.token, observedAt: evidence.observedAt, engineVersion: 'risk-v1', status: 'rejected', score: 100, reasons: [hardReject] };
+      return { token: evidence.token, observedAt: evidence.observedAt, engineVersion: 'risk-v1', status: 'rejected', score: 100, evidence, reasons: [hardReject] };
     }
 
     const missing = missingEvidence(evidence);
@@ -47,6 +48,7 @@ export class RiskEngine {
         observedAt: evidence.observedAt,
         engineVersion: 'risk-v1',
         status: 'insufficient_data',
+        evidence,
         reasons: ['Risk is blocked until all required evidence is available.', ...missing]
       };
     }
@@ -69,7 +71,7 @@ export class RiskEngine {
       `Liquidity / market-cap ratio: ${(liquidityRatio * 100).toFixed(1)}%.`,
       developerReason(evidence.developerPosition, evidence.developerRecentSelling ?? false)
     ];
-    return { token: evidence.token, observedAt: evidence.observedAt, engineVersion: 'risk-v1', status: 'assessed', score, reasons };
+    return { token: evidence.token, observedAt: evidence.observedAt, engineVersion: 'risk-v1', status: 'assessed', score, evidence, reasons };
   }
 }
 

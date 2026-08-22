@@ -4,6 +4,8 @@ import type { Candidate } from '../core/discovery.js';
 import type { CandidateRepository, HealthRepository, MarketSnapshotRepository } from './contracts.js';
 import type { MomentumFeatureRepository } from './contracts.js';
 import type { MomentumFeatureSet } from '../features/momentum-engine.js';
+import type { RiskAssessment } from '../risk/risk-engine.js';
+import type { RiskAssessmentRepository } from './contracts.js';
 
 export interface SqlClient {
   query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<{ readonly rows: readonly Row[] }>;
@@ -164,6 +166,18 @@ export class PostgresMomentumFeatureRepository implements MomentumFeatureReposit
         JSON.stringify(feature.metrics),
         JSON.stringify(feature.reasons)
       ]
+    );
+  }
+}
+
+export class PostgresRiskAssessmentRepository implements RiskAssessmentRepository {
+  constructor(private readonly client: SqlClient) {}
+
+  async save(assessment: RiskAssessment): Promise<void> {
+    await this.client.query(
+      `INSERT INTO risk_assessments (token_mint, observed_at, engine_version, status, risk_score, evidence, reasons)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
+      [assessment.token.mint, assessment.observedAt, assessment.engineVersion, assessment.status, assessment.score ?? null, JSON.stringify(assessment.evidence ?? {}), JSON.stringify(assessment.reasons)]
     );
   }
 }
