@@ -41,6 +41,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.minMomentumScore, 70);
   assert.equal(app.momentumIntervalMs, 300_000);
   assert.equal(app.riskIntervalMs, 900_000);
+  assert.equal(app.signalIntervalMs, 60_000);
 });
 
 test('live trading and incomplete Postgres configuration are rejected', () => {

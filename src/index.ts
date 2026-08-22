@@ -24,6 +24,9 @@ import { BirdeyeHolderProfileProvider } from './providers/birdeye/birdeye-holder
 import { HeliusMintAuthorityProvider } from './providers/helius/helius-mint-authority-provider.js';
 import { HeliusWalletAgeProvider } from './providers/helius/helius-wallet-age-provider.js';
 import { FreshWalletAnalyzer } from './risk/fresh-wallet-analyzer.js';
+import { SignalCycle } from './signals/signal-cycle.js';
+import { ScheduledSignalTask } from './signals/scheduled-signal-task.js';
+import { PostgresSignalRepository } from './database/postgres.js';
 
 const config = loadAppConfig();
 const portfolio = loadPaperPortfolioConfig();
@@ -76,6 +79,11 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
         config.maxRiskChecksPerCycle
       ),
       config.riskIntervalMs,
+      logger
+    ),
+    new IntervalScheduler(
+      new ScheduledSignalTask(new SignalCycle(candidates, new PostgresMomentumFeatureRepository(database), new PostgresRiskAssessmentRepository(database), new PostgresSignalRepository(database), undefined, portfolio.minMomentumScore, portfolio.maxRiskScore), logger),
+      config.signalIntervalMs,
       logger
     )
   );
