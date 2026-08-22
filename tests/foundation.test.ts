@@ -24,6 +24,7 @@ import { MomentumEngine } from '../src/features/momentum-engine.js';
 import { RiskEngine } from '../src/risk/risk-engine.js';
 import { HeliusMintAuthorityProvider } from '../src/providers/helius/helius-mint-authority-provider.js';
 import { BirdeyeHolderProvider } from '../src/providers/birdeye/birdeye-holder-provider.js';
+import { BirdeyeHolderProfileProvider } from '../src/providers/birdeye/birdeye-holder-profile-provider.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -336,4 +337,20 @@ test('Birdeye holder provider normalizes top-ten percentage as a fraction', asyn
   const result = await provider.getConcentration('mint');
   assert.equal(result.holderCount, 123);
   assert.equal(result.top10HoldPct, 0.425);
+});
+
+test('Birdeye holder profile maps labeled exposure and a fully exited developer', async () => {
+  const provider = new BirdeyeHolderProfileProvider('test-key', async () => ({
+    ok: true, status: 200,
+    async json() { return { success: true, data: { tags: [
+      { tag: 'bundler', holder_count: 2, percent_of_supply: 12, sell_volume: '0' },
+      { tag: 'insider', holder_count: 1, percent_of_supply: 3, sell_volume: '0' },
+      { tag: 'dev', holder_count: 1, percent_of_supply: 0, sell_volume: '20' }
+    ] } }; }
+  }));
+  const result = await provider.getProfile('mint');
+  assert.equal(result.bundledPct, 0.12);
+  assert.equal(result.insiderPct, 0.03);
+  assert.equal(result.developerPosition, 'fully_exited');
+  assert.equal(result.developerRecentSelling, true);
 });

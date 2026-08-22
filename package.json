@@ -20,7 +20,8 @@
     "verify:mayhem": "npm run build && node --env-file=.env dist/src/tools/verify-mayhem.js",
     "monitor:once": "npm run build && node --env-file=.env dist/src/tools/monitor-once.js",
     "momentum:once": "npm run build && node --env-file=.env dist/src/tools/momentum-once.js",
-    "verify:risk-data": "npm run build && node --env-file=.env dist/src/tools/verify-risk-data.js"
+    "verify:risk-data": "npm run build && node --env-file=.env dist/src/tools/verify-risk-data.js",
+    "verify:holder-profile": "npm run build && node --env-file=.env dist/src/tools/verify-holder-profile.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
