@@ -22,6 +22,8 @@ import { createLogger } from '../src/logging/logger.js';
 import { IntervalScheduler } from '../src/runtime/interval-scheduler.js';
 import { MomentumEngine } from '../src/features/momentum-engine.js';
 import { RiskEngine } from '../src/risk/risk-engine.js';
+import { HeliusMintAuthorityProvider } from '../src/providers/helius/helius-mint-authority-provider.js';
+import { BirdeyeHolderProvider } from '../src/providers/birdeye/birdeye-holder-provider.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -316,4 +318,22 @@ test('risk engine rejects an active freeze authority and fails closed for missin
   assert.equal(rejected.status, 'rejected');
   const incomplete = engine.evaluate({ token: { mint: 'mint' }, observedAt: new Date(), mayhemMode: false, mintAuthority: 'safe', freezeAuthority: 'safe', developerPosition: 'unknown' });
   assert.equal(incomplete.status, 'insufficient_data');
+});
+
+test('Helius mint-authority provider maps null authorities to safe', async () => {
+  const provider = new HeliusMintAuthorityProvider('test-key', async () => ({
+    ok: true, status: 200,
+    async json() { return { jsonrpc: '2.0', result: { value: { data: { parsed: { type: 'mint', info: { mintAuthority: null, freezeAuthority: null } } } } } }; }
+  }));
+  assert.deepEqual((await provider.getMintAuthorities('mint')).data, { mintAuthority: 'safe', freezeAuthority: 'safe' });
+});
+
+test('Birdeye holder provider normalizes top-ten percentage as a fraction', async () => {
+  const provider = new BirdeyeHolderProvider('test-key', async () => ({
+    ok: true, status: 200,
+    async json() { return { success: true, data: { holder: 123, top10_hold_percent: 42.5 } }; }
+  }));
+  const result = await provider.getConcentration('mint');
+  assert.equal(result.holderCount, 123);
+  assert.equal(result.top10HoldPct, 0.425);
 });
