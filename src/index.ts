@@ -15,6 +15,15 @@ import { IntervalScheduler } from './runtime/interval-scheduler.js';
 import { MomentumCycle } from './features/momentum-cycle.js';
 import { ScheduledMomentumTask } from './features/scheduled-momentum-task.js';
 import { PostgresMomentumFeatureRepository } from './database/postgres.js';
+import { PostgresRiskAssessmentRepository } from './database/postgres.js';
+import { RiskCycle } from './risk/risk-cycle.js';
+import { RiskEvidenceCollector } from './risk/risk-evidence-collector.js';
+import { ScheduledRiskTask } from './risk/scheduled-risk-task.js';
+import { BirdeyeHolderProvider } from './providers/birdeye/birdeye-holder-provider.js';
+import { BirdeyeHolderProfileProvider } from './providers/birdeye/birdeye-holder-profile-provider.js';
+import { HeliusMintAuthorityProvider } from './providers/helius/helius-mint-authority-provider.js';
+import { HeliusWalletAgeProvider } from './providers/helius/helius-wallet-age-provider.js';
+import { FreshWalletAnalyzer } from './risk/fresh-wallet-analyzer.js';
 
 const config = loadAppConfig();
 const portfolio = loadPaperPortfolioConfig();
@@ -51,6 +60,22 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
         logger
       ),
       config.momentumIntervalMs,
+      logger
+    ),
+    new IntervalScheduler(
+      new ScheduledRiskTask(
+        new RiskCycle(
+          candidates,
+          new RiskEvidenceCollector(
+            new PostgresMarketSnapshotRepository(database), new HeliusMayhemModeDetector(config.heliusApiKey), new HeliusMintAuthorityProvider(config.heliusApiKey),
+            new BirdeyeHolderProfileProvider(config.birdeyeApiKey), new FreshWalletAnalyzer(new BirdeyeHolderProvider(config.birdeyeApiKey), new HeliusWalletAgeProvider(config.heliusApiKey))
+          ),
+          new PostgresRiskAssessmentRepository(database)
+        ),
+        logger,
+        config.maxRiskChecksPerCycle
+      ),
+      config.riskIntervalMs,
       logger
     )
   );

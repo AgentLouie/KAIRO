@@ -11,6 +11,7 @@ export interface RiskEvidence {
   readonly freezeAuthority: 'safe' | 'unsafe' | 'unknown';
   readonly liquidityUsd?: number;
   readonly marketCapUsd?: number;
+  readonly marketCapSource?: 'provider' | 'supply_derived';
   readonly topHolderPct?: number;
   readonly freshWalletPct?: number;
   readonly bundledPct?: number;
@@ -69,6 +70,7 @@ export class RiskEngine {
       `Bundler share: ${(evidence.bundledPct! * 100).toFixed(1)}%.`,
       `Insider share: ${(evidence.insiderPct! * 100).toFixed(1)}%.`,
       `Liquidity / market-cap ratio: ${(liquidityRatio * 100).toFixed(1)}%.`,
+      evidence.marketCapSource === 'supply_derived' ? 'Market cap is derived from verified mint supply × current price.' : 'Market cap is supplied by the market-data provider.',
       developerReason(evidence.developerPosition, evidence.developerRecentSelling ?? false)
     ];
     return { token: evidence.token, observedAt: evidence.observedAt, engineVersion: 'risk-v1', status: 'assessed', score, evidence, reasons };

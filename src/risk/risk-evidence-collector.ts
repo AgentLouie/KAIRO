@@ -28,6 +28,7 @@ export class RiskEvidenceCollector {
     const profile = await retry(() => this.profiles.getProfile(mint));
     await wait(2_000);
     const fresh = await retry(() => this.freshWallets.analyze(mint));
+    const marketCapUsd = snapshot.marketCapUsd ?? (snapshot.priceUsd !== undefined && authority.data.supplyUi !== undefined ? snapshot.priceUsd * authority.data.supplyUi : undefined);
     return {
       token: snapshot.token,
       observedAt: new Date(),
@@ -35,7 +36,8 @@ export class RiskEvidenceCollector {
       mintAuthority: authority.data.mintAuthority,
       freezeAuthority: authority.data.freezeAuthority,
       ...(snapshot.liquidityUsd === undefined ? {} : { liquidityUsd: snapshot.liquidityUsd }),
-      ...(snapshot.marketCapUsd === undefined ? {} : { marketCapUsd: snapshot.marketCapUsd }),
+      ...(marketCapUsd === undefined ? {} : { marketCapUsd }),
+      ...(snapshot.marketCapUsd !== undefined ? { marketCapSource: 'provider' as const } : marketCapUsd !== undefined ? { marketCapSource: 'supply_derived' as const } : {}),
       topHolderPct: fresh.topHolderPct,
       freshWalletPct: fresh.freshWalletPct,
       bundledPct: profile.bundledPct,

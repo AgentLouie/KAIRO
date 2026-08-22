@@ -4,6 +4,7 @@ import { HeliusRpcError, type JsonRpcFetcher } from './helius-mayhem-mode-detect
 export interface MintAuthorityEvidence {
   readonly mintAuthority: 'safe' | 'unsafe';
   readonly freezeAuthority: 'safe' | 'unsafe';
+  readonly supplyUi?: number;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -39,12 +40,17 @@ export class HeliusMintAuthorityProvider {
     const info = asRecord(parsed?.info);
     if (!info || parsed?.type !== 'mint') throw new HeliusRpcError('Helius RPC did not return a parsed SPL mint account.', response.status);
     const fetchedAt = new Date();
+    const rawSupply = typeof info.supply === 'string' ? Number(info.supply) : undefined;
+    const decimals = typeof info.decimals === 'number' ? info.decimals : undefined;
+    const supplyUi = rawSupply !== undefined && decimals !== undefined && Number.isFinite(rawSupply) && Number.isInteger(decimals)
+      ? rawSupply / 10 ** decimals : undefined;
     return {
       source: this.name,
       fetchedAt,
       data: {
         mintAuthority: info.mintAuthority === null ? 'safe' : 'unsafe',
-        freezeAuthority: info.freezeAuthority === null ? 'safe' : 'unsafe'
+        freezeAuthority: info.freezeAuthority === null ? 'safe' : 'unsafe',
+        ...(supplyUi === undefined ? {} : { supplyUi })
       }
     };
   }
