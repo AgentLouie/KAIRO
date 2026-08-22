@@ -32,6 +32,7 @@ import { FreshWalletAnalyzer } from '../src/risk/fresh-wallet-analyzer.js';
 import { SignalEngine } from '../src/signals/signal-engine.js';
 import { RiskCycle } from '../src/risk/risk-cycle.js';
 import type { RiskEvidenceCollector } from '../src/risk/risk-evidence-collector.js';
+import { PaperEntryPlanner } from '../src/paper/paper-entry-planner.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -43,6 +44,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.maxMonitoredTokens, 20);
   assert.equal(portfolio.maxRiskScore, 55);
   assert.equal(portfolio.minMomentumScore, 70);
+  assert.equal(portfolio.stopLossPct, 15);
   assert.equal(app.momentumIntervalMs, 300_000);
   assert.equal(app.riskIntervalMs, 300_000);
   assert.equal(app.signalIntervalMs, 60_000);
@@ -166,7 +168,7 @@ test('migration runner records each new migration once', async () => {
     }
   };
   const applied = await applyMigrations(client, resolve(process.cwd(), 'database', 'migrations'));
-  assert.deepEqual(applied, ['001_foundation.sql', '002_candidate_discovery.sql', '003_momentum_features.sql', '004_risk_assessments.sql', '005_signals.sql']);
+  assert.deepEqual(applied, ['001_foundation.sql', '002_candidate_discovery.sql', '003_momentum_features.sql', '004_risk_assessments.sql', '005_signals.sql', '006_paper_execution_foundation.sql']);
   assert.ok(calls.includes('BEGIN'));
   assert.ok(calls.includes('COMMIT'));
 });
@@ -446,6 +448,28 @@ test('fresh-wallet analyzer estimates supply share from the top-holder wallet sa
   const result = await new FreshWalletAnalyzer(holders, ages, 1, () => new Date(172_800 * 1_000)).analyze('mint');
   assert.equal(result.freshWalletPct, 0.1);
   assert.equal(result.freshWallets, 1);
+});
+
+test('paper entry planner sizes by intended stop-loss risk including both simulated fees', () => {
+  const plan = new PaperEntryPlanner(loadPaperPortfolioConfig({})).plan({
+    token: { mint: 'mint' }, markPriceUsd: 10, solUsdPrice: 100,
+    availableBalanceSol: 10, openPositions: 0, observedAt: new Date('2026-08-22T00:00:00Z')
+  });
+  assert.equal(plan.status, 'approved');
+  if (plan.status !== 'approved') return;
+  assert.equal(plan.riskBudgetSol, 0.1);
+  assert.ok(Math.abs(plan.notionalSol - (0.1 / 0.17)) < 0.000_001);
+  assert.ok(plan.intendedLossSol <= plan.riskBudgetSol + 0.000_001);
+  assert.ok(Math.abs(plan.entryPriceUsd - 10.05) < 0.000_001);
+  assert.ok(Math.abs(plan.stopLossPriceUsd - 8.5425) < 0.000_001);
+});
+
+test('paper entry planner rejects entries beyond the position limit', () => {
+  const plan = new PaperEntryPlanner(loadPaperPortfolioConfig({})).plan({
+    token: { mint: 'mint' }, markPriceUsd: 10, solUsdPrice: 100,
+    availableBalanceSol: 10, openPositions: 3, observedAt: new Date()
+  });
+  assert.deepEqual(plan.status, 'rejected');
 });
 
 test('signal engine only emits a paper buy when momentum and independent risk both pass', () => {

@@ -11,6 +11,9 @@ export interface PaperPortfolioConfig {
   readonly maxAccountDrawdownPct: number;
   readonly maxRiskScore: number;
   readonly minMomentumScore: number;
+  readonly stopLossPct: number;
+  readonly entrySlippageBps: number;
+  readonly tradingFeeBps: number;
 }
 
 function positiveNumber(value: string | undefined, name: string, fallback: number): number {
@@ -37,6 +40,12 @@ function score(value: string | undefined, name: string, fallback: number): numbe
   return parsed;
 }
 
+function basisPoints(value: string | undefined, name: string, fallback: number): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 1_000) throw new ConfigError(`${name} must be an integer between 0 and 1000.`);
+  return parsed;
+}
+
 export function loadPaperPortfolioConfig(env: NodeJS.ProcessEnv = process.env): PaperPortfolioConfig {
   const config = {
     startingBalanceSol: positiveNumber(env.STARTING_BALANCE_SOL, 'STARTING_BALANCE_SOL', 10),
@@ -47,12 +56,16 @@ export function loadPaperPortfolioConfig(env: NodeJS.ProcessEnv = process.env): 
     maxPortfolioRiskPct: positiveNumber(env.MAX_PORTFOLIO_RISK_PCT, 'MAX_PORTFOLIO_RISK_PCT', 3),
     maxDailyDrawdownPct: positiveNumber(env.MAX_DAILY_DRAWDOWN_PCT, 'MAX_DAILY_DRAWDOWN_PCT', 5),
     maxAccountDrawdownPct: positiveNumber(env.MAX_ACCOUNT_DRAWDOWN_PCT, 'MAX_ACCOUNT_DRAWDOWN_PCT', 15),
-    maxRiskScore: score(env.MAX_RISK_SCORE, 'MAX_RISK_SCORE', 55)
-    , minMomentumScore: score(env.MIN_MOMENTUM_SCORE, 'MIN_MOMENTUM_SCORE', 70)
+    maxRiskScore: score(env.MAX_RISK_SCORE, 'MAX_RISK_SCORE', 55),
+    minMomentumScore: score(env.MIN_MOMENTUM_SCORE, 'MIN_MOMENTUM_SCORE', 70),
+    stopLossPct: positiveNumber(env.PAPER_STOP_LOSS_PCT, 'PAPER_STOP_LOSS_PCT', 15),
+    entrySlippageBps: basisPoints(env.PAPER_ENTRY_SLIPPAGE_BPS, 'PAPER_ENTRY_SLIPPAGE_BPS', 50),
+    tradingFeeBps: basisPoints(env.PAPER_TRADING_FEE_BPS, 'PAPER_TRADING_FEE_BPS', 100)
   };
 
   if (config.maxPortfolioRiskPct < config.riskPerTradePct) {
     throw new ConfigError('MAX_PORTFOLIO_RISK_PCT cannot be less than RISK_PER_TRADE_PCT.');
   }
+  if (config.stopLossPct >= 100) throw new ConfigError('PAPER_STOP_LOSS_PCT must be below 100.');
   return config;
 }

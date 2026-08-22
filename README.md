@@ -22,6 +22,8 @@ It is separate from the Paper Trader Chrome extension. KAIRO can run without GMG
 
 Momentum v1 and Risk v1 feed an explainable Signal v1 engine. It can emit research-only `PAPER BUY`, `WATCH`, or `REJECT`; it cannot open a position. Helius verifies mint/freeze authority and conservatively estimates top-holder wallet age; Birdeye supplies wallet-level holder concentration plus tagged bundler, insider, and developer cohorts.
 
+Paper-execution foundation includes deterministic, configurable position sizing from intended stop-loss risk plus simulated fee/slippage assumptions and PostgreSQL tables for portfolios, positions, and trade events. It is not connected to a signal-triggered execution scheduler yet.
+
 ## Setup
 
 1. Copy `.env.example` to `.env`.
