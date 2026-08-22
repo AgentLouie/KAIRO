@@ -16,6 +16,7 @@ export interface AppConfig {
   readonly maxRiskChecksPerCycle: number;
   readonly snapshotMaxConcurrency: number;
   readonly snapshotRequestSpacingMs: number;
+  readonly exploratoryPaperMode: boolean;
 }
 
 function intervalMs(name: string, value: string | undefined, fallbackSeconds: number): number {
@@ -52,6 +53,12 @@ export class ConfigError extends Error {
 function optionalValue(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+function booleanValue(value: string | undefined, name: string, fallback: boolean): boolean {
+  const normalized = (value ?? String(fallback)).toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  throw new ConfigError(`${name} must be true or false.`);
 }
 
 function port(value: string | undefined): number {
@@ -96,6 +103,7 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     maxRiskChecksPerCycle: positiveInteger('MAX_RISK_CHECKS_PER_CYCLE', env.MAX_RISK_CHECKS_PER_CYCLE, 1, 3),
     snapshotMaxConcurrency: positiveInteger('SNAPSHOT_MAX_CONCURRENCY', env.SNAPSHOT_MAX_CONCURRENCY, 1, 1),
     snapshotRequestSpacingMs: spacingMs(env.SNAPSHOT_REQUEST_SPACING_SECONDS),
+    exploratoryPaperMode: booleanValue(env.EXPLORATORY_PAPER_MODE, 'EXPLORATORY_PAPER_MODE', false),
     storageDriver,
     ...(databaseUrl ? { databaseUrl } : {}),
     ...(heliusApiKey ? { heliusApiKey } : {}),

@@ -29,6 +29,8 @@ import { ScheduledActivityPruner } from './discovery/scheduled-activity-pruner.j
 import { SignalCycle } from './signals/signal-cycle.js';
 import { ScheduledSignalTask } from './signals/scheduled-signal-task.js';
 import { PostgresSignalRepository } from './database/postgres.js';
+import { ExploratoryActivityCycle } from './signals/exploratory-activity-cycle.js';
+import { ScheduledExploratoryActivityTask } from './signals/scheduled-exploratory-activity-task.js';
 import { PostgresPendingPaperBuyRepository, PostgresPaperExecutionRepository } from './database/postgres.js';
 import { PaperExecutionCycle } from './paper/paper-execution-cycle.js';
 import { ScheduledPaperExecutionTask } from './paper/scheduled-paper-execution-task.js';
@@ -102,6 +104,13 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
       logger
     )
   );
+  if (config.exploratoryPaperMode) {
+    schedulers.push(new IntervalScheduler(
+      new ScheduledExploratoryActivityTask(new ExploratoryActivityCycle(candidates, new PostgresMarketSnapshotRepository(database), new PostgresRiskAssessmentRepository(database), new PostgresSignalRepository(database), portfolio.minimumActivityVolume1mUsd, portfolio.maxRiskScore), logger),
+      180_000,
+      logger
+    ));
+  }
 } else {
   logger.warn('scheduler.disabled', { reason: 'PostgreSQL, Birdeye, and Helius configuration are all required.' });
 }

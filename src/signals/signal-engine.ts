@@ -7,7 +7,7 @@ export type SignalAction = 'paper_buy' | 'watch' | 'reject';
 export interface SignalDecision {
   readonly token: TokenRef;
   readonly observedAt: Date;
-  readonly strategyVersion: 'confirmed-momentum-v1';
+  readonly strategyVersion: 'confirmed-momentum-v1' | 'exploratory-activity-v1';
   readonly action: SignalAction;
   readonly reasons: readonly string[];
 }
