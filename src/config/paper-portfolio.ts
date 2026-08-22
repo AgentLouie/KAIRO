@@ -10,6 +10,7 @@ export interface PaperPortfolioConfig {
   readonly maxDailyDrawdownPct: number;
   readonly maxAccountDrawdownPct: number;
   readonly maxRiskScore: number;
+  readonly minMomentumScore: number;
 }
 
 function positiveNumber(value: string | undefined, name: string, fallback: number): number {
@@ -47,6 +48,7 @@ export function loadPaperPortfolioConfig(env: NodeJS.ProcessEnv = process.env): 
     maxDailyDrawdownPct: positiveNumber(env.MAX_DAILY_DRAWDOWN_PCT, 'MAX_DAILY_DRAWDOWN_PCT', 5),
     maxAccountDrawdownPct: positiveNumber(env.MAX_ACCOUNT_DRAWDOWN_PCT, 'MAX_ACCOUNT_DRAWDOWN_PCT', 15),
     maxRiskScore: score(env.MAX_RISK_SCORE, 'MAX_RISK_SCORE', 55)
+    , minMomentumScore: score(env.MIN_MOMENTUM_SCORE, 'MIN_MOMENTUM_SCORE', 70)
   };
 
   if (config.maxPortfolioRiskPct < config.riskPerTradePct) {

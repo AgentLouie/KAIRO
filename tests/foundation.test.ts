@@ -27,6 +27,7 @@ import { BirdeyeHolderProvider } from '../src/providers/birdeye/birdeye-holder-p
 import { BirdeyeHolderProfileProvider } from '../src/providers/birdeye/birdeye-holder-profile-provider.js';
 import { HeliusWalletAgeProvider } from '../src/providers/helius/helius-wallet-age-provider.js';
 import { FreshWalletAnalyzer } from '../src/risk/fresh-wallet-analyzer.js';
+import { SignalEngine } from '../src/signals/signal-engine.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -37,6 +38,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.maxConcurrentPositions, 3);
   assert.equal(portfolio.maxMonitoredTokens, 20);
   assert.equal(portfolio.maxRiskScore, 55);
+  assert.equal(portfolio.minMomentumScore, 70);
   assert.equal(app.momentumIntervalMs, 300_000);
   assert.equal(app.riskIntervalMs, 900_000);
 });
@@ -374,4 +376,15 @@ test('fresh-wallet analyzer estimates supply share from the top-holder wallet sa
   const result = await new FreshWalletAnalyzer(holders, ages, 1, () => new Date(172_800 * 1_000)).analyze('mint');
   assert.equal(result.freshWalletPct, 0.1);
   assert.equal(result.freshWallets, 1);
+});
+
+test('signal engine only emits a paper buy when momentum and independent risk both pass', () => {
+  const decision = new SignalEngine().evaluate({
+    token: { mint: 'mint' }, observedAt: new Date(), minMomentumScore: 70, maxRiskScore: 55,
+    momentum: { token: { mint: 'mint' }, observedAt: new Date(), engineVersion: 'momentum-v1', status: 'ready', score: 80, metrics: {}, reasons: [] },
+    risk: { token: { mint: 'mint' }, observedAt: new Date(), engineVersion: 'risk-v1', status: 'assessed', score: 35, reasons: [] }
+  });
+  assert.equal(decision.action, 'paper_buy');
+  const blocked = new SignalEngine().evaluate({ token: { mint: 'mint' }, observedAt: new Date(), minMomentumScore: 70, maxRiskScore: 55, risk: { token: { mint: 'mint' }, observedAt: new Date(), engineVersion: 'risk-v1', status: 'insufficient_data', reasons: ['Missing data.'] } });
+  assert.equal(blocked.action, 'watch');
 });

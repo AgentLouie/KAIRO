@@ -20,7 +20,7 @@ It is separate from the Paper Trader Chrome extension. KAIRO can run without GMG
 - Helius Mayhem Mode detector (requires `HELIUS_API_KEY`).
 - Controlled background discovery, market snapshots, Momentum v1 scoring, and one paced risk assessment every 15 minutes, with retry/backoff and no overlapping runs.
 
-Momentum v1 saves explainable, non-trading scores from two recent snapshots. Risk v1 now has fail-closed scoring rules. Helius verifies mint/freeze authority and conservatively estimates top-holder wallet age; Birdeye supplies wallet-level holder concentration plus tagged bundler, insider, and developer cohorts. The fresh-wallet estimate is explicitly limited to the top-ten holder sample. Trade signals and paper execution are not implemented.
+Momentum v1 and Risk v1 feed an explainable Signal v1 engine. It can emit research-only `PAPER BUY`, `WATCH`, or `REJECT`; it cannot open a position. Helius verifies mint/freeze authority and conservatively estimates top-holder wallet age; Birdeye supplies wallet-level holder concentration plus tagged bundler, insider, and developer cohorts.
 
 ## Setup
 
