@@ -217,6 +217,28 @@ test('discovery cycle restores observing candidates and avoids rediscovering the
   assert.deepEqual(result.monitored.map((candidate) => candidate.token.token.mint), ['existing', 'new']);
 });
 
+test('discovery cycle reuses a slot after a persisted candidate is released', async () => {
+  const make = (mint: string) => ({ token: { mint }, source: 'pump_dot_fun' as const, discoveredAt: new Date(), liquidityUsd: 1_000 });
+  const stored: import('../src/core/discovery.js').Candidate[] = [{ token: make('old'), status: 'observing' }];
+  const repository: CandidateRepository = {
+    async save(candidate) { stored.push(candidate); },
+    async observing() { return stored.filter((candidate) => candidate.status === 'observing'); },
+    async release(mint) { const active = stored.find((candidate) => candidate.token.token.mint === mint && candidate.status === 'observing'); if (active) Object.assign(active, { status: 'released' }); }
+  };
+  const cycle = new DiscoveryCycle(
+    { name: 'fake', async listNewPumpFunTokens() { return [make('fresh')]; } },
+    { async isMayhemMode() { return false; } },
+    new CandidateFunnel({ maxMonitoredTokens: 1, preliminaryMinLiquidityUsd: 500 }),
+    repository
+  );
+
+  await cycle.initialize();
+  await repository.release('old', 'inactive');
+  const result = await cycle.runOnce(20);
+  assert.deepEqual(result.monitored.map((candidate) => candidate.token.token.mint), ['fresh']);
+  assert.equal(result.observingAdded, 1);
+});
+
 test('snapshot cycle saves one fresh snapshot per monitored candidate while isolating failures', async () => {
   const stored: import('../src/core/discovery.js').Candidate[] = [
     { token: { token: { mint: 'good' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' },

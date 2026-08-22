@@ -33,6 +33,9 @@ export class DiscoveryCycle {
 
   async runOnce(limit: number): Promise<DiscoveryCycleResult> {
     await this.initialize();
+    // The pruner can release candidates in a separate scheduler. Refresh capacity
+    // from PostgreSQL before each discovery pass so freed slots are reusable.
+    this.funnel.synchronize(await this.candidates.observing());
     const listings = await this.provider.listNewPumpFunTokens(limit);
     const fresh = listings.filter((listing) => !this.funnel.isKnown(listing.token.mint));
     const mayhem = await excludeMayhemMode(fresh, this.mayhemDetector);

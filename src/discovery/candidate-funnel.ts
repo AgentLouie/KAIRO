@@ -60,6 +60,15 @@ export class CandidateFunnel {
     }
   }
 
+  /** Keeps the process-local capacity counter aligned with persisted releases. */
+  synchronize(candidates: readonly Candidate[]): void {
+    const observing = new Set(candidates.filter((candidate) => candidate.status === 'observing').map((candidate) => candidate.token.token.mint));
+    for (const mint of this.active.keys()) {
+      if (!observing.has(mint)) this.active.delete(mint);
+    }
+    this.restore(candidates);
+  }
+
   isKnown(tokenMint: string): boolean {
     return this.known.has(tokenMint);
   }
