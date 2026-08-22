@@ -8,6 +8,34 @@ export interface AppConfig {
   readonly databaseUrl?: string;
   readonly heliusApiKey?: string;
   readonly birdeyeApiKey?: string;
+  readonly discoveryIntervalMs: number;
+  readonly snapshotIntervalMs: number;
+  readonly snapshotMaxConcurrency: number;
+  readonly snapshotRequestSpacingMs: number;
+}
+
+function intervalMs(name: string, value: string | undefined, fallbackSeconds: number): number {
+  const seconds = Number(value ?? String(fallbackSeconds));
+  if (!Number.isInteger(seconds) || seconds < 30 || seconds > 3_600) {
+    throw new ConfigError(`${name} must be an integer between 30 and 3600 seconds.`);
+  }
+  return seconds * 1_000;
+}
+
+function positiveInteger(name: string, value: string | undefined, fallback: number, maximum: number): number {
+  const parsed = Number(value ?? String(fallback));
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
+    throw new ConfigError(`${name} must be an integer between 1 and ${maximum}.`);
+  }
+  return parsed;
+}
+
+function spacingMs(value: string | undefined): number {
+  const seconds = Number(value ?? '2');
+  if (!Number.isInteger(seconds) || seconds < 1 || seconds > 60) {
+    throw new ConfigError('SNAPSHOT_REQUEST_SPACING_SECONDS must be an integer between 1 and 60 seconds.');
+  }
+  return seconds * 1_000;
 }
 
 export class ConfigError extends Error {
@@ -56,6 +84,10 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     tradingMode: 'paper',
     port: port(env.PORT),
     logLevel: logLevel as AppConfig['logLevel'],
+    discoveryIntervalMs: intervalMs('DISCOVERY_INTERVAL_SECONDS', env.DISCOVERY_INTERVAL_SECONDS, 60),
+    snapshotIntervalMs: intervalMs('SNAPSHOT_INTERVAL_SECONDS', env.SNAPSHOT_INTERVAL_SECONDS, 300),
+    snapshotMaxConcurrency: positiveInteger('SNAPSHOT_MAX_CONCURRENCY', env.SNAPSHOT_MAX_CONCURRENCY, 1, 1),
+    snapshotRequestSpacingMs: spacingMs(env.SNAPSHOT_REQUEST_SPACING_SECONDS),
     storageDriver,
     ...(databaseUrl ? { databaseUrl } : {}),
     ...(heliusApiKey ? { heliusApiKey } : {}),

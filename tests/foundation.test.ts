@@ -17,6 +17,9 @@ import { excludeMayhemMode } from '../src/discovery/mayhem-mode-guard.js';
 import { HeliusMayhemModeDetector } from '../src/providers/helius/helius-mayhem-mode-detector.js';
 import { DiscoveryCycle } from '../src/discovery/discovery-cycle.js';
 import type { CandidateRepository } from '../src/database/contracts.js';
+import { SnapshotCycle } from '../src/market-data/snapshot-cycle.js';
+import { createLogger } from '../src/logging/logger.js';
+import { IntervalScheduler } from '../src/runtime/interval-scheduler.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -194,6 +197,43 @@ test('discovery cycle restores observing candidates and avoids rediscovering the
   assert.equal(result.skippedKnown, 1);
   assert.equal(result.observingAdded, 1);
   assert.deepEqual(result.monitored.map((candidate) => candidate.token.token.mint), ['existing', 'new']);
+});
+
+test('snapshot cycle saves one fresh snapshot per monitored candidate while isolating failures', async () => {
+  const stored: import('../src/core/discovery.js').Candidate[] = [
+    { token: { token: { mint: 'good' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' },
+    { token: { token: { mint: 'bad' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' }
+  ];
+  const repository: CandidateRepository = { async save() {}, async observing() { return stored; } };
+  const snapshots = new SnapshotService({
+    name: 'fake',
+    async getTokenSnapshot(mint) {
+      if (mint === 'bad') throw new Error('provider down');
+      return { source: 'fake', fetchedAt: new Date(), data: { token: { mint }, observedAt: new Date(), provider: 'other' } };
+    },
+    async getTokenTrades() { return { source: 'fake', fetchedAt: new Date(), data: [] }; },
+    async getTokenPrice() { return { source: 'fake', fetchedAt: new Date(), data: 1 }; },
+    async getTokenLiquidity() { return { source: 'fake', fetchedAt: new Date(), data: undefined }; },
+    async getTokenVolume() { return { source: 'fake', fetchedAt: new Date(), data: undefined }; }
+  }, new InMemoryMarketSnapshotRepository(), { cacheTtlMs: 0 });
+  const result = await new SnapshotCycle(repository, snapshots, createLogger('error'), 1, { maxAttempts: 1, requestSpacingMs: 0 }).runOnce();
+  assert.deepEqual(result, { candidates: 2, saved: 1, failed: 1 });
+});
+
+test('scheduler prevents overlapping runs of the same task', async () => {
+  let calls = 0;
+  let release: (() => void) | undefined;
+  const waiting = new Promise<void>((resolve) => { release = resolve; });
+  const scheduler = new IntervalScheduler({
+    name: 'slow-task',
+    async runOnce() { calls += 1; await waiting; }
+  }, 1_000, createLogger('error'));
+  const first = scheduler.runNow();
+  await Promise.resolve();
+  await scheduler.runNow();
+  assert.equal(calls, 1);
+  release?.();
+  await first;
 });
 
 test('Mayhem filter removes only candidates confirmed by the detector', async () => {

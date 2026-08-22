@@ -17,7 +17,8 @@
     "db:migrate": "npm run build && node --env-file=.env dist/src/tools/migrate.js",
     "verify:postgres": "npm run build && node --env-file=.env dist/src/tools/verify-postgres.js",
     "discover:once": "npm run build && node --env-file=.env dist/src/tools/discover-once.js",
-    "verify:mayhem": "npm run build && node --env-file=.env dist/src/tools/verify-mayhem.js"
+    "verify:mayhem": "npm run build && node --env-file=.env dist/src/tools/verify-mayhem.js",
+    "monitor:once": "npm run build && node --env-file=.env dist/src/tools/monitor-once.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
