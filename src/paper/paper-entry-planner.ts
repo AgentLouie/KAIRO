@@ -15,6 +15,7 @@ export type PaperEntryPlan =
   | {
       readonly status: 'approved'; readonly token: TokenRef; readonly observedAt: Date;
       readonly riskBudgetSol: number; readonly entryPriceUsd: number; readonly notionalSol: number;
+      readonly solUsdPrice: number;
       readonly entryFeeSol: number; readonly estimatedExitFeeSol: number; readonly cashDebitSol: number;
       readonly tokenQuantity: number; readonly stopLossPriceUsd: number; readonly intendedLossSol: number;
     };
@@ -50,7 +51,7 @@ export class PaperEntryPlanner {
     const intendedLossSol = notionalSol * stopLossFraction + entryFeeSol + estimatedExitFeeSol;
     return {
       status: 'approved', token: request.token, observedAt: request.observedAt, riskBudgetSol,
-      entryPriceUsd, notionalSol, entryFeeSol, estimatedExitFeeSol,
+      entryPriceUsd, solUsdPrice: request.solUsdPrice, notionalSol, entryFeeSol, estimatedExitFeeSol,
       cashDebitSol: notionalSol + entryFeeSol, tokenQuantity, stopLossPriceUsd, intendedLossSol
     };
   }

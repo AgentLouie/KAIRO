@@ -29,6 +29,9 @@ import { ScheduledActivityPruner } from './discovery/scheduled-activity-pruner.j
 import { SignalCycle } from './signals/signal-cycle.js';
 import { ScheduledSignalTask } from './signals/scheduled-signal-task.js';
 import { PostgresSignalRepository } from './database/postgres.js';
+import { PostgresPendingPaperBuyRepository, PostgresPaperExecutionRepository } from './database/postgres.js';
+import { PaperExecutionCycle } from './paper/paper-execution-cycle.js';
+import { ScheduledPaperExecutionTask } from './paper/scheduled-paper-execution-task.js';
 
 const config = loadAppConfig();
 const portfolio = loadPaperPortfolioConfig();
@@ -90,6 +93,11 @@ if (config.storageDriver === 'postgres' && config.databaseUrl && config.birdeyeA
     ),
     new IntervalScheduler(
       new ScheduledSignalTask(new SignalCycle(candidates, new PostgresMomentumFeatureRepository(database), new PostgresRiskAssessmentRepository(database), new PostgresSignalRepository(database), undefined, portfolio.minMomentumScore, portfolio.maxRiskScore), logger),
+      config.signalIntervalMs,
+      logger
+    ),
+    new IntervalScheduler(
+      new ScheduledPaperExecutionTask(new PaperExecutionCycle(new PostgresPendingPaperBuyRepository(database), new PostgresPaperExecutionRepository(database), new BirdeyeMarketDataProvider(config.birdeyeApiKey), portfolio), logger),
       config.signalIntervalMs,
       logger
     )

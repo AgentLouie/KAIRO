@@ -8,6 +8,9 @@ import type { RiskAssessment } from '../risk/risk-engine.js';
 import type { RiskAssessmentRepository } from './contracts.js';
 import type { SignalRepository } from './contracts.js';
 import type { SignalDecision } from '../signals/signal-engine.js';
+import type { PaperPortfolioConfig } from '../config/paper-portfolio.js';
+import type { PaperExecutionRepository, PaperPortfolioState, PendingPaperBuy, PendingPaperBuyRepository } from '../paper/paper-execution-cycle.js';
+import type { PaperEntryPlan } from '../paper/paper-entry-planner.js';
 
 export interface SqlClient {
   query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<{ readonly rows: readonly Row[] }>;
@@ -202,6 +205,36 @@ export class PostgresSignalRepository implements SignalRepository {
   constructor(private readonly client: SqlClient) {}
   async save(signal: SignalDecision): Promise<void> {
     await this.client.query('INSERT INTO signals (token_mint, observed_at, strategy_version, action, reasons) VALUES ($1,$2,$3,$4,$5::jsonb)', [signal.token.mint, signal.observedAt, signal.strategyVersion, signal.action, JSON.stringify(signal.reasons)]);
+  }
+}
+
+export class PostgresPendingPaperBuyRepository implements PendingPaperBuyRepository {
+  constructor(private readonly client: SqlClient) {}
+  async pending(): Promise<readonly PendingPaperBuy[]> {
+    const result = await this.client.query<any>(`SELECT s.id, s.token_mint, s.observed_at, t.symbol, t.name FROM signals s JOIN tokens t ON t.mint=s.token_mint LEFT JOIN paper_positions p ON p.signal_id=s.id WHERE s.action='paper_buy' AND p.id IS NULL ORDER BY s.observed_at ASC`);
+    return result.rows.map((row) => ({ id: Number(row.id), token: { mint: row.token_mint, ...(row.symbol ? { symbol: row.symbol } : {}), ...(row.name ? { name: row.name } : {}) }, observedAt: new Date(row.observed_at) }));
+  }
+}
+
+export class PostgresPaperExecutionRepository implements PaperExecutionRepository {
+  constructor(private readonly client: TransactionalSqlClient) {}
+  async state(startingBalanceSol: number): Promise<PaperPortfolioState> {
+    await this.client.query('INSERT INTO paper_portfolios (id, starting_balance_sol, cash_balance_sol) VALUES (1,$1,$1) ON CONFLICT (id) DO NOTHING', [startingBalanceSol]);
+    const result = await this.client.query<any>(`SELECT p.cash_balance_sol, (SELECT COUNT(*) FROM paper_positions WHERE status='open') AS open_positions FROM paper_portfolios p WHERE p.id=1`);
+    const row = result.rows[0]; return { cashBalanceSol: Number(row.cash_balance_sol), openPositions: Number(row.open_positions) };
+  }
+  async open(signal: PendingPaperBuy, plan: Extract<PaperEntryPlan, { status: 'approved' }>, config: PaperPortfolioConfig): Promise<boolean> {
+    return this.client.withTransaction(async (client) => {
+      const portfolio = await client.query<any>('SELECT cash_balance_sol FROM paper_portfolios WHERE id=1 FOR UPDATE');
+      const cash = Number(portfolio.rows[0]?.cash_balance_sol ?? 0);
+      const count = await client.query<any>("SELECT COUNT(*) AS count FROM paper_positions WHERE status='open'");
+      if (cash < plan.cashDebitSol || Number(count.rows[0]?.count ?? 0) >= config.maxConcurrentPositions) return false;
+      const created = await client.query<any>(`INSERT INTO paper_positions (token_mint, signal_id, status, opened_at, entry_price_usd, entry_sol_usd, entry_notional_sol, entry_fee_sol, token_quantity, stop_loss_price_usd, intended_loss_sol, execution_config) VALUES ($1,$2,'open',$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb) RETURNING id`, [plan.token.mint, signal.id, plan.observedAt, plan.entryPriceUsd, plan.solUsdPrice, plan.notionalSol, plan.entryFeeSol, plan.tokenQuantity, plan.stopLossPriceUsd, plan.intendedLossSol, JSON.stringify({ stopLossPct: config.stopLossPct, entrySlippageBps: config.entrySlippageBps, tradingFeeBps: config.tradingFeeBps })]);
+      const positionId = Number(created.rows[0]?.id);
+      await client.query('UPDATE paper_portfolios SET cash_balance_sol=cash_balance_sol-$1, updated_at=NOW() WHERE id=1', [plan.cashDebitSol]);
+      await client.query(`INSERT INTO paper_trades (position_id, side, executed_at, price_usd, quantity, notional_sol, fee_sol, reason) VALUES ($1,'buy',$2,$3,$4,$5,$6,$7)`, [positionId, plan.observedAt, plan.entryPriceUsd, plan.tokenQuantity, plan.notionalSol, plan.entryFeeSol, 'Confirmed PAPER BUY signal; simulated local entry.']);
+      return true;
+    });
   }
 }
 
