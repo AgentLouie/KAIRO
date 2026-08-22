@@ -33,6 +33,7 @@ import { SignalEngine } from '../src/signals/signal-engine.js';
 import { RiskCycle } from '../src/risk/risk-cycle.js';
 import type { RiskEvidenceCollector } from '../src/risk/risk-evidence-collector.js';
 import { PaperEntryPlanner } from '../src/paper/paper-entry-planner.js';
+import { PaperExecutionCycle } from '../src/paper/paper-execution-cycle.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -470,6 +471,18 @@ test('paper entry planner rejects entries beyond the position limit', () => {
     availableBalanceSol: 10, openPositions: 3, observedAt: new Date()
   });
   assert.deepEqual(plan.status, 'rejected');
+});
+
+test('paper execution does not request market data when no paper buy is pending', async () => {
+  let marketCalls = 0;
+  const cycle = new PaperExecutionCycle(
+    { async pending() { return []; } },
+    { async state() { return { cashBalanceSol: 10, openPositions: 0 }; }, async open() { return true; } },
+    { async getTokenPrice() { marketCalls += 1; return { source: 'fake', fetchedAt: new Date(), data: 1 }; } } as unknown as MarketDataProvider,
+    loadPaperPortfolioConfig({})
+  );
+  assert.deepEqual(await cycle.runOnce(), { reviewed: 0, opened: 0, skipped: 0 });
+  assert.equal(marketCalls, 0);
 });
 
 test('signal engine only emits a paper buy when momentum and independent risk both pass', () => {
