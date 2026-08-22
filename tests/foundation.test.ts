@@ -198,7 +198,8 @@ test('discovery cycle restores observing candidates and avoids rediscovering the
   const stored: import('../src/core/discovery.js').Candidate[] = [{ token: make('existing', 1_000), status: 'observing' }];
   const repository: CandidateRepository = {
     async save(candidate) { stored.push(candidate); },
-    async observing() { return stored.filter((candidate) => candidate.status === 'observing'); }
+    async observing() { return stored.filter((candidate) => candidate.status === 'observing'); },
+    async release() {}
   };
   const cycle = new DiscoveryCycle(
     { name: 'fake', async listNewPumpFunTokens() { return [make('existing', 1_000), make('new', 2_000)]; } },
@@ -217,7 +218,7 @@ test('snapshot cycle saves one fresh snapshot per monitored candidate while isol
     { token: { token: { mint: 'good' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' },
     { token: { token: { mint: 'bad' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' }
   ];
-  const repository: CandidateRepository = { async save() {}, async observing() { return stored; } };
+  const repository: CandidateRepository = { async save() {}, async observing() { return stored; }, async release() {} };
   const snapshots = new SnapshotService({
     name: 'fake',
     async getTokenSnapshot(mint) {
@@ -254,7 +255,7 @@ test('stopping an active snapshot cycle cancels its remaining pacing delay', asy
     { token: { token: { mint: 'one' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' },
     { token: { token: { mint: 'two' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' }
   ];
-  const repository: CandidateRepository = { async save() {}, async observing() { return stored; } };
+  const repository: CandidateRepository = { async save() {}, async observing() { return stored; }, async release() {} };
   const snapshots = new SnapshotService({
     name: 'fake',
     async getTokenSnapshot(mint) { return { source: 'fake', fetchedAt: new Date(), data: { token: { mint }, observedAt: new Date(), provider: 'other' } }; },

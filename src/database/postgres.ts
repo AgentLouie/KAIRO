@@ -150,6 +150,10 @@ export class PostgresCandidateRepository implements CandidateRepository {
     );
     return result.rows.map(candidateFromRow);
   }
+
+  async release(tokenMint: string, reason: string): Promise<void> {
+    await this.client.query("UPDATE candidates SET status='released', reason=$2, updated_at=NOW() WHERE token_mint=$1 AND status='observing'", [tokenMint, reason]);
+  }
 }
 
 export class PostgresMomentumFeatureRepository implements MomentumFeatureRepository {

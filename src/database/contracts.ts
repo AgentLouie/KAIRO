@@ -16,6 +16,7 @@ export interface MarketSnapshotRepository {
 export interface CandidateRepository {
   save(candidate: Candidate): Promise<void>;
   observing(): Promise<readonly Candidate[]>;
+  release(tokenMint: string, reason: string): Promise<void>;
 }
 
 export interface MomentumFeatureRepository {
