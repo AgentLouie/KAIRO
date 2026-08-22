@@ -20,7 +20,15 @@ export class MomentumCycle {
     let ready = 0;
     let insufficientData = 0;
     for (const candidate of monitored) {
-      const feature = this.engine.evaluate(await this.snapshots.recent(candidate.token.token.mint, 2));
+      const snapshots = await this.snapshots.recent(candidate.token.token.mint, 2);
+      // A token can be discovered after the snapshot cycle has already begun.
+      // There is no timestamp from which to create a meaningful feature yet, so
+      // wait for its first stored observation instead of failing the scheduler.
+      if (snapshots.length === 0) {
+        insufficientData += 1;
+        continue;
+      }
+      const feature = this.engine.evaluate(snapshots);
       await this.features.save(feature);
       if (feature.status === 'ready') ready += 1;
       else insufficientData += 1;

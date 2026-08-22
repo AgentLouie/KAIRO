@@ -21,6 +21,7 @@ import { SnapshotCycle } from '../src/market-data/snapshot-cycle.js';
 import { createLogger } from '../src/logging/logger.js';
 import { IntervalScheduler } from '../src/runtime/interval-scheduler.js';
 import { MomentumEngine } from '../src/features/momentum-engine.js';
+import { MomentumCycle } from '../src/features/momentum-cycle.js';
 import { RiskEngine } from '../src/risk/risk-engine.js';
 import { HeliusMintAuthorityProvider } from '../src/providers/helius/helius-mint-authority-provider.js';
 import { BirdeyeHolderProvider } from '../src/providers/birdeye/birdeye-holder-provider.js';
@@ -306,6 +307,27 @@ test('momentum engine marks incomplete history as insufficient data', () => {
   const result = new MomentumEngine().evaluate([{ token: { mint: 'mint' }, observedAt: new Date(), provider: 'other' }]);
   assert.equal(result.status, 'insufficient_data');
   assert.equal(result.score, undefined);
+});
+
+test('momentum cycle waits cleanly for a newly discovered token without snapshots', async () => {
+  const saved: unknown[] = [];
+  const cycle = new MomentumCycle(
+    {
+      async save() {},
+      async observing() {
+        return [{ token: { token: { mint: 'new-mint' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' as const }];
+      },
+      async release() {}
+    },
+    new InMemoryMarketSnapshotRepository(),
+    {
+      async save(feature) { saved.push(feature); },
+      async latest() { return undefined; }
+    }
+  );
+
+  assert.deepEqual(await cycle.runOnce(), { evaluated: 1, ready: 0, insufficientData: 1 });
+  assert.equal(saved.length, 0);
 });
 
 test('risk engine can assess a fully exited developer without treating it as an automatic rejection', () => {
