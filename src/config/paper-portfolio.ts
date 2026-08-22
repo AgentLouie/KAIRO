@@ -9,6 +9,7 @@ export interface PaperPortfolioConfig {
   readonly maxPortfolioRiskPct: number;
   readonly maxDailyDrawdownPct: number;
   readonly maxAccountDrawdownPct: number;
+  readonly maxRiskScore: number;
 }
 
 function positiveNumber(value: string | undefined, name: string, fallback: number): number {
@@ -27,6 +28,14 @@ function positiveInteger(value: string | undefined, name: string, fallback: numb
   return parsed;
 }
 
+function score(value: string | undefined, name: string, fallback: number): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+    throw new ConfigError(`${name} must be an integer between 0 and 100.`);
+  }
+  return parsed;
+}
+
 export function loadPaperPortfolioConfig(env: NodeJS.ProcessEnv = process.env): PaperPortfolioConfig {
   const config = {
     startingBalanceSol: positiveNumber(env.STARTING_BALANCE_SOL, 'STARTING_BALANCE_SOL', 10),
@@ -36,7 +45,8 @@ export function loadPaperPortfolioConfig(env: NodeJS.ProcessEnv = process.env): 
     preliminaryMinLiquidityUsd: positiveNumber(env.PRELIMINARY_MIN_LIQUIDITY_USD, 'PRELIMINARY_MIN_LIQUIDITY_USD', 500),
     maxPortfolioRiskPct: positiveNumber(env.MAX_PORTFOLIO_RISK_PCT, 'MAX_PORTFOLIO_RISK_PCT', 3),
     maxDailyDrawdownPct: positiveNumber(env.MAX_DAILY_DRAWDOWN_PCT, 'MAX_DAILY_DRAWDOWN_PCT', 5),
-    maxAccountDrawdownPct: positiveNumber(env.MAX_ACCOUNT_DRAWDOWN_PCT, 'MAX_ACCOUNT_DRAWDOWN_PCT', 15)
+    maxAccountDrawdownPct: positiveNumber(env.MAX_ACCOUNT_DRAWDOWN_PCT, 'MAX_ACCOUNT_DRAWDOWN_PCT', 15),
+    maxRiskScore: score(env.MAX_RISK_SCORE, 'MAX_RISK_SCORE', 55)
   };
 
   if (config.maxPortfolioRiskPct < config.riskPerTradePct) {

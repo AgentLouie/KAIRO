@@ -21,6 +21,7 @@ import { SnapshotCycle } from '../src/market-data/snapshot-cycle.js';
 import { createLogger } from '../src/logging/logger.js';
 import { IntervalScheduler } from '../src/runtime/interval-scheduler.js';
 import { MomentumEngine } from '../src/features/momentum-engine.js';
+import { RiskEngine } from '../src/risk/risk-engine.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -30,6 +31,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.riskPerTradePct, 1);
   assert.equal(portfolio.maxConcurrentPositions, 3);
   assert.equal(portfolio.maxMonitoredTokens, 20);
+  assert.equal(portfolio.maxRiskScore, 55);
   assert.equal(app.momentumIntervalMs, 300_000);
 });
 
@@ -294,4 +296,24 @@ test('momentum engine marks incomplete history as insufficient data', () => {
   const result = new MomentumEngine().evaluate([{ token: { mint: 'mint' }, observedAt: new Date(), provider: 'other' }]);
   assert.equal(result.status, 'insufficient_data');
   assert.equal(result.score, undefined);
+});
+
+test('risk engine can assess a fully exited developer without treating it as an automatic rejection', () => {
+  const result = new RiskEngine().evaluate({
+    token: { mint: 'mint' }, observedAt: new Date(), mayhemMode: false,
+    mintAuthority: 'safe', freezeAuthority: 'safe', liquidityUsd: 25_000, marketCapUsd: 100_000,
+    topHolderPct: 0.2, freshWalletPct: 0.2, bundledPct: 0.05, insiderPct: 0.05,
+    developerPosition: 'fully_exited', developerRecentSelling: false
+  });
+  assert.equal(result.status, 'assessed');
+  assert.ok((result.score ?? 100) < 55);
+  assert.match(result.reasons.at(-1) ?? '', /not an automatic rejection/);
+});
+
+test('risk engine rejects an active freeze authority and fails closed for missing wallet evidence', () => {
+  const engine = new RiskEngine();
+  const rejected = engine.evaluate({ token: { mint: 'mint' }, observedAt: new Date(), mayhemMode: false, mintAuthority: 'safe', freezeAuthority: 'unsafe', developerPosition: 'unknown' });
+  assert.equal(rejected.status, 'rejected');
+  const incomplete = engine.evaluate({ token: { mint: 'mint' }, observedAt: new Date(), mayhemMode: false, mintAuthority: 'safe', freezeAuthority: 'safe', developerPosition: 'unknown' });
+  assert.equal(incomplete.status, 'insufficient_data');
 });
