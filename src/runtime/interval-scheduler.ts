@@ -3,12 +3,14 @@ import type { Logger } from '../logging/logger.js';
 export interface ScheduledTask {
   readonly name: string;
   runOnce(): Promise<unknown>;
+  stop?(): void;
 }
 
 /** Runs one task at a fixed interval without overlapping or crashing the process. */
 export class IntervalScheduler {
   private timer: NodeJS.Timeout | undefined;
   private running = false;
+  private activeRun: Promise<void> | undefined;
 
   constructor(
     private readonly task: ScheduledTask,
@@ -31,21 +33,26 @@ export class IntervalScheduler {
       return;
     }
     this.running = true;
-    try {
-      await this.task.runOnce();
-      this.logger.info('scheduler.completed', { task: this.task.name });
-    } catch (error) {
-      this.logger.error('scheduler.failed', { task: this.task.name, message: errorMessage(error) });
-    } finally {
-      this.running = false;
-    }
+    this.activeRun = (async () => {
+      try {
+        await this.task.runOnce();
+        this.logger.info('scheduler.completed', { task: this.task.name });
+      } catch (error) {
+        this.logger.error('scheduler.failed', { task: this.task.name, message: errorMessage(error) });
+      } finally {
+        this.running = false;
+        this.activeRun = undefined;
+      }
+    })();
+    await this.activeRun;
   }
 
-  stop(): void {
-    if (!this.timer) return;
-    clearInterval(this.timer);
+  async stop(): Promise<void> {
+    if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+    this.task.stop?.();
     this.logger.info('scheduler.stopped', { task: this.task.name });
+    await this.activeRun;
   }
 }
 

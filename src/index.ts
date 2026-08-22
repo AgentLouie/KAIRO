@@ -57,18 +57,25 @@ server.listen(config.port, () => {
   for (const scheduler of schedulers) scheduler.start();
 });
 
-function shutdown(signal: string): void {
+let shuttingDown = false;
+
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info('server.stopping', { signal });
-  for (const scheduler of schedulers) scheduler.stop();
-  server.close((error) => {
-    if (error) {
-      logger.error('server.stop_failed', { message: error.message });
-      process.exitCode = 1;
-    }
-    logger.info('server.stopped');
-    void database?.end?.();
+  await Promise.all(schedulers.map((scheduler) => scheduler.stop()));
+  await new Promise<void>((resolve) => {
+    server.close((error) => {
+      if (error) {
+        logger.error('server.stop_failed', { message: error.message });
+        process.exitCode = 1;
+      }
+      resolve();
+    });
   });
+  await database?.end?.();
+  logger.info('server.stopped');
 }
 
-process.once('SIGINT', () => shutdown('SIGINT'));
-process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => { void shutdown('SIGINT'); });
+process.once('SIGTERM', () => { void shutdown('SIGTERM'); });

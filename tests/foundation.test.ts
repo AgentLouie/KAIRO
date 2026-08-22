@@ -236,6 +236,28 @@ test('scheduler prevents overlapping runs of the same task', async () => {
   await first;
 });
 
+test('stopping an active snapshot cycle cancels its remaining pacing delay', async () => {
+  const stored: import('../src/core/discovery.js').Candidate[] = [
+    { token: { token: { mint: 'one' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' },
+    { token: { token: { mint: 'two' }, source: 'pump_dot_fun', discoveredAt: new Date() }, status: 'observing' }
+  ];
+  const repository: CandidateRepository = { async save() {}, async observing() { return stored; } };
+  const snapshots = new SnapshotService({
+    name: 'fake',
+    async getTokenSnapshot(mint) { return { source: 'fake', fetchedAt: new Date(), data: { token: { mint }, observedAt: new Date(), provider: 'other' } }; },
+    async getTokenTrades() { return { source: 'fake', fetchedAt: new Date(), data: [] }; },
+    async getTokenPrice() { return { source: 'fake', fetchedAt: new Date(), data: 1 }; },
+    async getTokenLiquidity() { return { source: 'fake', fetchedAt: new Date(), data: undefined }; },
+    async getTokenVolume() { return { source: 'fake', fetchedAt: new Date(), data: undefined }; }
+  }, new InMemoryMarketSnapshotRepository(), { cacheTtlMs: 0 });
+  const cycle = new SnapshotCycle(repository, snapshots, createLogger('error'), 1, { requestSpacingMs: 1_000 });
+  const run = cycle.runOnce();
+  await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  cycle.stop();
+  const result = await run;
+  assert.equal(result.saved, 1);
+});
+
 test('Mayhem filter removes only candidates confirmed by the detector', async () => {
   const result = await excludeMayhemMode(
     [{ token: { mint: 'safe' } }, { token: { mint: 'mayhem' } }],
