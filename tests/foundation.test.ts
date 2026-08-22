@@ -17,6 +17,7 @@ import { excludeMayhemMode } from '../src/discovery/mayhem-mode-guard.js';
 import { HeliusMayhemModeDetector } from '../src/providers/helius/helius-mayhem-mode-detector.js';
 import { DiscoveryCycle } from '../src/discovery/discovery-cycle.js';
 import type { CandidateRepository } from '../src/database/contracts.js';
+import type { Candidate } from '../src/core/discovery.js';
 import { SnapshotCycle } from '../src/market-data/snapshot-cycle.js';
 import { createLogger } from '../src/logging/logger.js';
 import { IntervalScheduler } from '../src/runtime/interval-scheduler.js';
@@ -29,6 +30,8 @@ import { BirdeyeHolderProfileProvider } from '../src/providers/birdeye/birdeye-h
 import { HeliusWalletAgeProvider } from '../src/providers/helius/helius-wallet-age-provider.js';
 import { FreshWalletAnalyzer } from '../src/risk/fresh-wallet-analyzer.js';
 import { SignalEngine } from '../src/signals/signal-engine.js';
+import { RiskCycle } from '../src/risk/risk-cycle.js';
+import type { RiskEvidenceCollector } from '../src/risk/risk-evidence-collector.js';
 
 test('defaults are paper-only and match the initial portfolio', () => {
   const app = loadAppConfig({});
@@ -41,7 +44,7 @@ test('defaults are paper-only and match the initial portfolio', () => {
   assert.equal(portfolio.maxRiskScore, 55);
   assert.equal(portfolio.minMomentumScore, 70);
   assert.equal(app.momentumIntervalMs, 300_000);
-  assert.equal(app.riskIntervalMs, 900_000);
+  assert.equal(app.riskIntervalMs, 300_000);
   assert.equal(app.signalIntervalMs, 60_000);
 });
 
@@ -348,6 +351,27 @@ test('risk engine rejects an active freeze authority and fails closed for missin
   assert.equal(rejected.status, 'rejected');
   const incomplete = engine.evaluate({ token: { mint: 'mint' }, observedAt: new Date(), mayhemMode: false, mintAuthority: 'safe', freezeAuthority: 'safe', developerPosition: 'unknown' });
   assert.equal(incomplete.status, 'insufficient_data');
+});
+
+test('risk cycle prioritizes tokens without an existing assessment', async () => {
+  const visited: string[] = [];
+  const candidate = (mint: string) => ({ token: { token: { mint }, source: 'pump_dot_fun' as const, discoveredAt: new Date() }, status: 'observing' as const });
+  const cycle = new RiskCycle(
+    { async save() {}, async observing() { return [candidate('already-reviewed'), candidate('unreviewed')]; }, async release() {} },
+    {
+      async collect(item: Candidate) {
+        visited.push(item.token.token.mint);
+        return { token: item.token.token, observedAt: new Date(), mayhemMode: false, mintAuthority: 'safe' as const, freezeAuthority: 'safe' as const, liquidityUsd: 25_000, marketCapUsd: 100_000, topHolderPct: 0.2, freshWalletPct: 0.1, bundledPct: 0.05, insiderPct: 0.05, developerPosition: 'fully_exited' as const, developerRecentSelling: false };
+      }
+    } as unknown as RiskEvidenceCollector,
+    {
+      async save() {},
+      async latest(mint) { return mint === 'already-reviewed' ? { token: { mint }, observedAt: new Date('2026-08-22T00:00:00Z'), engineVersion: 'risk-v1' as const, status: 'assessed' as const, score: 10, reasons: [] } : undefined; }
+    }
+  );
+
+  await cycle.runOnce(1);
+  assert.deepEqual(visited, ['unreviewed']);
 });
 
 test('Helius mint-authority provider maps null authorities to safe', async () => {

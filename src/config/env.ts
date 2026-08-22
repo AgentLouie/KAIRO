@@ -91,7 +91,7 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     discoveryIntervalMs: intervalMs('DISCOVERY_INTERVAL_SECONDS', env.DISCOVERY_INTERVAL_SECONDS, 60),
     snapshotIntervalMs: intervalMs('SNAPSHOT_INTERVAL_SECONDS', env.SNAPSHOT_INTERVAL_SECONDS, 300),
     momentumIntervalMs: intervalMs('MOMENTUM_INTERVAL_SECONDS', env.MOMENTUM_INTERVAL_SECONDS, 300),
-    riskIntervalMs: intervalMs('RISK_INTERVAL_SECONDS', env.RISK_INTERVAL_SECONDS, 900),
+    riskIntervalMs: intervalMs('RISK_INTERVAL_SECONDS', env.RISK_INTERVAL_SECONDS, 300),
     signalIntervalMs: intervalMs('SIGNAL_INTERVAL_SECONDS', env.SIGNAL_INTERVAL_SECONDS, 60),
     maxRiskChecksPerCycle: positiveInteger('MAX_RISK_CHECKS_PER_CYCLE', env.MAX_RISK_CHECKS_PER_CYCLE, 1, 3),
     snapshotMaxConcurrency: positiveInteger('SNAPSHOT_MAX_CONCURRENCY', env.SNAPSHOT_MAX_CONCURRENCY, 1, 1),
